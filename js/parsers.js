@@ -86,7 +86,9 @@ function guessYear(text) {
   return +Object.entries(count).sort((a, b) => b[1] - a[1])[0][0];
 }
 
-const IGNORE_LINE = /\b(SALDO|TOTAL|SUBTOTAL|LIMITE|VENCIMENTO|PAGAMENTO M[IÍ]NIMO|RESUMO|FATURA ANTERIOR|ENCARGOS PREVISTOS|CET|TAXA DE JUROS)\b/i;
+const IGNORE_LINE = /\b(SALDO|TOTAL|SUBTOTAL|LIMITE|VENCIMENTO|PAGAMENTO M[IÍ]NIMO|RESUMO|FATURA ANTERIOR|ENCARGOS PREVISTOS|CET|TAXA DE JUROS|RENDIMENTO L[IÍ]QUIDO|VALORES EM|COTA[CÇ][AÃ]O)\b/i;
+// rodapés e cabeçalhos de página que não são lançamentos
+const FOOTER = /EXTRATO GERADO|OUVIDORIA|ATENDIMENTO|D[UÚ]VIDA|CHAT DO APP|^P[AÁ]GINA|^\d+\s*(DE|\/)\s*\d+$|AG[EÊ]NCIA\s*\d+\s*CONTA|^CPF|^MOVIMENTA[CÇ][OÕ]ES$/i;
 const CARD_CREDIT = /PAGAMENTO|PAGTO|PGTO|ESTORNO|REEMBOLSO|CR[EÉ]DITO DE|CASHBACK|DEVOLU/i;
 
 // Cartão de crédito costuma listar compras como valores positivos.
@@ -176,31 +178,58 @@ export function parseTable(rows, text = '') {
 
 /* ---------- texto livre (PDF, TXT, DOCX sem tabela) ---------- */
 const MONEY = /(?:[-+]\s?)?(?:R\$\s?)?(?:[-+]\s?)?\d{1,3}(?:\.\d{3})*,\d{2}(?:\s?[-DC](?![A-Za-z]))?/g;
+const HAS_MONEY = new RegExp(MONEY.source);
 const MONEY_US = /(?:[-+]\s?)?(?:R\$\s?)?\d{1,3}(?:,\d{3})*\.\d{2}(?![\d])/g;
-const DATE_TOKEN = /^\s*(\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?|\d{4}-\d{2}-\d{2}|\d{1,2}\s*(?:de\s+)?(?:JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)[a-zç]*\.?(?:\s*(?:de\s+)?\d{4})?)\s+/i;
+const DATE_TOKEN = /^\s*(\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?|\d{4}-\d{2}-\d{2}|\d{1,2}\s*(?:de\s+)?(?:JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)[a-zç]*\.?(?:\s*(?:de\s+)?\d{4})?)(?:\s+|$)/i;
 
 export function parseLines(text) {
   const year = guessYear(text);
   const hasBalanceCol = /\bSALDO\b/i.test(text);
+  const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  // Extratos agrupados por dia (Nubank, Inter): a data vem sozinha numa linha, às vezes com "Total de entradas/saídas",
+  // e os lançamentos do dia vêm nas linhas de baixo, sem data.
+  const isHeader = (l) => {
+    const dm = l.match(DATE_TOKEN);
+    if (!dm || !parseDate(dm[1], year)) return false;
+    const rest = l.slice(dm[0].length);
+    return !rest || /^TOTAL DE (ENTRADAS|SA[IÍ]DAS)/i.test(rest) || !HAS_MONEY.test(rest);
+  };
+  const grouped = lines.filter(isHeader).length >= 2;
   const out = [];
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.replace(/\s+/g, ' ').trim();
-    if (!line) continue;
+  let curDate = null;
+  let sign = 0;
+  let last = null;
+  for (const line of lines) {
+    if (FOOTER.test(line)) { last = null; continue; }
     const dm = line.match(DATE_TOKEN);
-    const date = dm ? parseDate(dm[1], year) : null;
-    if (!date) continue;
-    const rest = line.slice(dm[0].length);
+    const lineDate = dm ? parseDate(dm[1], year) : null;
+    let rest = line;
+    if (lineDate) { curDate = lineDate; rest = line.slice(dm[0].length); last = null; }
+    else if (!grouped) continue;
+    // seções "Total de entradas" / "Total de saídas" dizem o sinal dos lançamentos abaixo
+    if (/^TOTAL DE ENTRADAS|^ENTRADAS\b/i.test(rest)) sign = 1;
+    else if (/^TOTAL DE SA[IÍ]DAS|^SA[IÍ]DAS\b/i.test(rest)) sign = -1;
+    if (!curDate || !rest) continue;
+    MONEY.lastIndex = 0;
     let money = rest.match(MONEY) || [];
     if (!money.length) money = rest.match(MONEY_US) || [];
-    if (!money.length) continue;
+    if (!money.length) {
+      // continuação da descrição (nome de quem recebeu o PIX, por exemplo)
+      if (grouped && last && last.cont < 2 && rest.length < 120 && !IGNORE_LINE.test(rest)) { last.desc += ` - ${rest}`; last.cont++; }
+      continue;
+    }
     const token = money.find((m) => /R\$/.test(m)) || (hasBalanceCol && money.length > 1 ? money[money.length - 2] : money[money.length - 1]);
-    const amount = parseAmount(token.replace(/\s?C$/, ''));
+    let amount = parseAmount(token.replace(/\s?C$/, ''));
     let desc = rest;
     money.forEach((m) => { desc = desc.replace(m, ' '); });
     desc = desc.replace(/\bR\$\s?/g, ' ').replace(/\bUSD\b|\bBRL\b/g, ' ').replace(/\s+/g, ' ').replace(/^[-–—|·\s]+|[-–—|·\s]+$/g, '').trim();
-    if (!desc || IGNORE_LINE.test(desc) || !Number.isFinite(amount) || amount === 0) continue;
-    out.push({ date, desc, amount, explicit: /^[-+]|[-DC]$/.test(token.trim()) });
+    if (!desc || IGNORE_LINE.test(desc) || !Number.isFinite(amount) || amount === 0) { last = null; continue; }
+    // nos extratos agrupados o sinal vem da seção; um "-" antes do valor costuma ser só separador da descrição
+    if (grouped && sign) amount = sign * Math.abs(amount);
+    last = { date: curDate, desc, amount, cont: 0 };
+    out.push(last);
   }
+  out.forEach((t) => delete t.cont);
   return fixFuture(normalizeSigns(out));
 }
 
@@ -295,7 +324,7 @@ async function sheetRows(buf) {
 }
 
 const BANKS = [
-  ['Nubank', /NUBANK|NU PAGAMENTOS|NU FINANCEIRA|Identificador/i],
+  ['Nubank', /NUBANK|NU PAGAMENTOS|NU FINANCEIRA|Identificador|^NU_/i],
   ['Inter', /BANCO INTER|\bINTER&CO|\bINTER\b|Data Lan[cç]amento;Hist[oó]rico/i],
   ['Itaú', /ITA[UÚ]/i],
   ['Santander', /SANTANDER/i],
@@ -309,8 +338,9 @@ const BANKS = [
 ];
 /** Descobre o banco pelo nome do arquivo ou pelo conteúdo. */
 export function detectBank(name, text = '') {
-  const hay = `${name}\n${text.slice(0, 4000)}`;
-  return BANKS.find(([, re]) => re.test(hay))?.[0] || null;
+  // o nome do arquivo vale mais que o conteúdo (um PIX para o "BCO INTER" aparece num extrato do Nubank)
+  const byName = BANKS.find(([, re]) => re.test(name))?.[0];
+  return byName || BANKS.find(([, re]) => re.test(text.slice(0, 4000)))?.[0] || null;
 }
 
 const ext = (name) => (name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() || '';
@@ -318,7 +348,7 @@ const ext = (name) => (name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() ||
 /** Lê o arquivo e retorna { items, bank }. */
 export async function readStatement(file, opts = {}) {
   const { items, text } = await readAny(file, opts);
-  return { items, bank: detectBank(file.name, text) };
+  return { items, bank: detectBank(file.name, text), text: String(text || '').slice(0, 6000) };
 }
 
 async function readAny(file, { askPassword } = {}) {
