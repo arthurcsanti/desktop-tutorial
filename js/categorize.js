@@ -234,7 +234,7 @@ export function classify(desc, signed, rules = [], ownName = '') {
   if (type === 'in' && signed < 0 && !known?.type) type = 'out';
   if (isOwnTransfer(s, ownName)) return { key: 'TRANSFERÊNCIA ENTRE CONTAS', merchant: 'Transferência entre contas', cat: 'outros', type: 'skip' };
   const isPix = !known && TRANSFER.test(s);
-  const via = { PIX: 'PIX', TED: 'TED', DOC: 'DOC' }[s.match(TRANSFER)?.[1]] || 'Transferência';
+  const via = /\bPIX\b/.test(s) ? 'PIX' : { TED: 'TED', DOC: 'DOC' }[s.match(TRANSFER)?.[1]] || 'Transferência';
   const name = rule?.name || known?.name || (isPix ? `${via} · ${transferName(s) || 'sem nome'}` : titleCase(key));
   let cat = rule?.cat || (known && !known.type ? known.cat : 'outros');
   if (type !== 'out') cat = rule?.cat || 'outros';

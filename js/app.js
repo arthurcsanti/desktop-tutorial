@@ -660,7 +660,7 @@ const views = {
           <button class="row plain row-btn" data-action="sample"><div class="row-main"><div class="row-title">Carregar dados de exemplo</div></div>${icon('chevron')}</button>
           <button class="row plain row-btn" data-action="wipe"><div class="row-main"><div class="row-title danger">Apagar todos os dados</div></div></button>
         </div></div>
-      <p class="empty-hint">Lastro · versão 1.2</p>`;
+      <p class="empty-hint">Lastro · versão 1.2.1</p>`;
   },
 };
 
@@ -739,7 +739,7 @@ async function handleFile(file, mode) {
       pending = { mode, file: file.name, items };
       return investReview();
     }
-    const { items: raw, bank } = await readStatement(file, { askPassword });
+    const { items: raw, bank, text } = await readStatement(file, { askPassword });
     // evita duplicar lançamentos já importados
     const seen = new Map();
     data.tx.forEach((t) => { const k = `${t.date}|${t.amount.toFixed(2)}|${t.key}`; seen.set(k, (seen.get(k) || 0) + 1); });
@@ -758,7 +758,7 @@ async function handleFile(file, mode) {
       if (seen.get(k)) { seen.set(k, seen.get(k) - 1); dupes++; return; }
       items.push(t);
     });
-    pending = { mode, file: file.name, items, dupes, bank };
+    pending = { mode, file: file.name, items, dupes, bank, text };
     txReview();
   } catch (e) {
     openSheet(`<h2>Não deu para ler</h2><p class="page-sub">${esc(e.message || 'Formato não reconhecido')}</p>
@@ -771,7 +771,8 @@ function txReview() {
   const { items, dupes, file, bank } = pending;
   if (!items.length) {
     return openSheet(`<h2>Nada novo</h2><p class="page-sub">${dupes ? `Os ${dupes} lançamentos de ${esc(file)} já estavam no app.` : `Não encontramos lançamentos em ${esc(file)}.`}</p>
-      ${dupes ? '' : `<p class="note">${icon('info')} O arquivo precisa ter data, descrição e valor. Se for PDF escaneado (foto), exporte em CSV ou OFX no app do banco.</p>`}
+      ${dupes ? '' : `<p class="note">${icon('info')} ${pending.text?.trim() ? 'O app leu o texto, mas não reconheceu data, descrição e valor nas linhas.' : 'Não há texto no arquivo: parece ser uma imagem ou PDF escaneado.'} Se o banco oferecer CSV ou OFX, esses formatos são os mais precisos.</p>`}
+      ${!dupes && pending.text?.trim() ? '<button class="btn block" data-action="show-text">Ver o texto que o app leu</button>' : ''}
       <button class="btn block" data-action="import">Escolher outro arquivo</button>`);
   }
   const out = items.filter((t) => t.type === 'out');
@@ -960,6 +961,10 @@ document.addEventListener('click', async (e) => {
     case 'month': monthSheet(); break;
     case 'set-month': mk = a.dataset.mk; closeSheet(); render(); break;
     case 'confirm-import': confirmImport(); break;
+    case 'show-text': openSheet(`<h2>Texto lido</h2><p class="page-sub">As primeiras linhas, do jeito que o app enxerga o arquivo.</p>
+      <pre class="raw-text">${esc((pending?.text || '').split('\n').slice(0, 80).join('\n'))}</pre>
+      <p class="note">${icon('lock')} Contém seus dados. Se for mandar um print para ajuste, cubra nomes, CPF e valores se preferir: o que importa é o formato das linhas.</p>
+      <button class="btn block" data-action="close-sheet">Fechar</button>`); break;
     case 'confirm-inv': confirmInv(); break;
     case 'tx': txSheet(id); break;
     case 'set-cat': {
