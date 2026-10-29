@@ -9,7 +9,8 @@ export const state = {
   library: { mode: 'galeria', sort: 'updated' },
   lastField: null,
   syncing: false,
-  settings: { theme: 'envelhecido', sound: false, typewriter: true, clientId: '', driveLinked: false, lastSync: 0 },
+  planner: { mode: 'calendario', month: '', platform: '', day: '' },
+  settings: { theme: 'envelhecido', sound: false, typewriter: true, linkPreview: false, clientId: '', driveLinked: false, lastSync: 0 },
 };
 
 // Funções de alto nível que o app.js registra (evita importações circulares).
@@ -19,6 +20,7 @@ export const app = {
   renderTop: () => {},
   openScript: () => {},
   showLibrary: () => {},
+  showPlanner: () => {},
   createScript: () => {},
   persist: async () => {},
   scheduleSync: () => {},
@@ -102,6 +104,24 @@ export function today() {
 
 export const current = () => state.scripts.get(state.currentId);
 export const live = () => [...state.scripts.values()].filter((s) => !s.purged);
+// Roteiros (sem campanhas), fora da lixeira.
+export const scripts = () => live().filter((s) => !s.deleted && s.kind !== 'campanha');
+export const campaigns = () => live().filter((s) => !s.deleted && s.kind === 'campanha');
+
+// Datas no formato AAAA-MM-DD (o mesmo do Obsidian e do campo de data do navegador), no fuso local.
+export function isoDate(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+export function parseIso(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+}
+export function addDays(iso, n) {
+  const d = parseIso(iso) || new Date();
+  d.setDate(d.getDate() + n);
+  return isoDate(d);
+}
+export const fmtDay = (iso) => parseIso(iso)?.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }) || 'sem data';
 
 // Marca o roteiro como alterado e agenda a gravação.
 export function touch(s, { list = true } = {}) {
@@ -194,6 +214,13 @@ export function isUrl(s) {
 export function ask(title, fields, { ok = 'OK' } = {}) {
   return new Promise((resolve) => {
     const inputs = fields.map((f) => {
+      if (f.type === 'select') {
+        const sel = h('select', { name: f.name }, f.options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o))
+          .map((o) => (o.group ? h('optgroup', { label: o.group }) : h('option', { value: o.value }, o.label))));
+        sel.value = f.value ?? '';
+        if (f.onChange) sel.addEventListener('change', () => f.onChange(sel.value, inputs));
+        return { f, input: sel };
+      }
       const input = h(f.type === 'textarea' ? 'textarea' : 'input', {
         type: f.type && f.type !== 'textarea' ? f.type : 'text',
         name: f.name,
@@ -207,7 +234,7 @@ export function ask(title, fields, { ok = 'OK' } = {}) {
     const dlg = h('dialog', { class: 'dialog dialog-sm' },
       h('form', { method: 'dialog', class: 'dialog-body' },
         h('header', { class: 'dialog-head' }, h('h2', null, title)),
-        inputs.map(({ f, input }) => h('label', { class: 'field' }, f.label, input)),
+        inputs.map(({ f, input }) => h('label', { class: 'field', 'data-name': f.name }, f.label, input)),
         h('div', { class: 'row row-end' },
           h('button', { class: 'btn btn-ghost', value: 'cancel', type: 'submit' }, 'Cancelar'),
           h('button', { class: 'btn btn-stamp', value: 'ok', type: 'submit' }, ok))));
@@ -218,7 +245,8 @@ export function ask(title, fields, { ok = 'OK' } = {}) {
       resolve(res);
     });
     dlg.showModal();
+    inputs.forEach(({ f, input }) => f.onChange?.(input.value, inputs));
     inputs[0]?.input.focus();
-    inputs[0]?.input.select?.();
+    if (inputs[0]?.input.tagName === 'INPUT') inputs[0].input.select();
   });
 }

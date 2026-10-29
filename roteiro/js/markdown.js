@@ -397,6 +397,33 @@ function parseTabela(body, meta) {
   };
 }
 
+const POST_COLS = [
+  ['platform', 'Plataforma'], ['format', 'Formato'], ['date', 'Data'], ['time', 'Hora'], ['status', 'Status'],
+  ['campaign', 'Campanha'], ['link', 'Link'], ['views', 'Visualizações'], ['likes', 'Curtidas'],
+  ['comments', 'Comentários'], ['shares', 'Compartilhamentos'], ['saves', 'Salvos'], ['note', 'Nota'],
+];
+
+function publicacoesToMd(t) {
+  if (!t.posts.length) return '';
+  return tableToMd([POST_COLS.map((c) => c[1]), ...t.posts.map((p) => POST_COLS.map(([k]) => (k === 'campaign' && p.campaign ? `[[${p.campaign}]]` : p[k])))]);
+}
+
+function parsePublicacoes(body) {
+  const lines = body.split('\n').filter((l) => RX.table.test(l));
+  if (!lines.length) return [];
+  const rows = parseTable(lines);
+  const head = rows.shift().map(norm);
+  const idx = Object.fromEntries(POST_COLS.map(([k, label]) => [k, head.findIndex((x) => x.startsWith(norm(label).slice(0, 6)))]));
+  return rows.map((r) => {
+    const p = { id: uid() };
+    for (const [k] of POST_COLS) p[k] = idx[k] >= 0 ? (r[idx[k]] || '').trim() : '';
+    p.campaign = p.campaign.replace(/^\[\[([^\]|]+)(?:\|[^\]]*)?\]\]$/, '$1');
+    p.platform ||= 'Outro';
+    p.status ||= 'Planejado';
+    return p;
+  });
+}
+
 function tabMeta(t) {
   if (t.type === 'roteiro' || t.type === 'referencias') return t.view ? { view: t.view } : null;
   if (t.type === 'tabela') {
@@ -418,14 +445,22 @@ function tabToMd(t) {
     moodboard: () => moodboardToMd(t),
     referencias: () => referenciasToMd(t),
     tabela: () => tabelaToMd(t),
+    publicacoes: () => publicacoesToMd(t),
   }[t.type]?.() ?? '';
   return `## ${(t.name || 'Aba').replace(/\n/g, ' ')}\n<!-- aba: ${t.type}${meta ? ' ' + JSON.stringify(meta) : ''} -->\n\n${content.trim()}`;
 }
 
 export function scriptToMd(s) {
+  const c = s.kind === 'campanha' ? s.campaign || {} : null;
   const fm = toFrontmatter({
     id: s.id,
+    tipo: c ? 'campanha' : undefined,
     titulo: s.title || '',
+    objetivo: c ? c.objetivo || '' : undefined,
+    inicio: c ? c.inicio || '' : undefined,
+    fim: c ? c.fim || '' : undefined,
+    plataformas: c ? c.plataformas || [] : undefined,
+    cor: c ? c.cor || '' : undefined,
     status: s.status,
     pasta: s.folder || '',
     tags: s.tags || [],
@@ -463,12 +498,19 @@ export function mdToScript(md, { fallbackTitle = '', id } = {}) {
     else if (mk.type === 'referencias') Object.assign(tab, { view: meta?.view || 'cartoes', items: parseReferencias(content) });
     else if (mk.type === 'tabela') Object.assign(tab, { view: meta?.view || 'tabela' }, parseTabela(content, meta));
     else if (mk.type === 'texto') tab.content = content;
+    else if (mk.type === 'publicacoes') tab.posts = parsePublicacoes(content);
     else { tab.type = 'pagina'; tab.content = content; }
     tabs.push(tab);
   });
   const toTs = (v, fb) => { const t = Date.parse(v); return Number.isFinite(t) ? t : fb; };
   const now = Date.now();
+  const isCampaign = data.tipo === 'campanha';
+  const list = (v) => (Array.isArray(v) ? v : String(v || '').split(',')).map((t) => String(t).trim()).filter(Boolean);
   return {
+    ...(isCampaign ? {
+      kind: 'campanha',
+      campaign: { objetivo: String(data.objetivo || ''), inicio: String(data.inicio || ''), fim: String(data.fim || ''), plataformas: list(data.plataformas), cor: String(data.cor || '#8a2e1d') },
+    } : {}),
     id: String(data.id || id || uid()),
     title: String(data.titulo ?? data.title ?? (h1 ? h1[1].trim() : fallbackTitle)),
     status: String(data.status || 'Ideia'),

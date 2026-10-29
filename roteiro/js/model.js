@@ -24,7 +24,36 @@ export const TAB_TYPES = {
   referencias: { icon: '↗', label: 'Referências', desc: 'Músicas, vídeos, filmes, artigos e imagens com link.' },
   tabela: { icon: '▤', label: 'Tabela', desc: 'Banco de dados como no Notion: colunas com tipo, ordenação e quadro.' },
   texto: { icon: '≡', label: 'Texto corrido', desc: 'Folha pautada para o roteiro inteiro, sem tabela.' },
+  publicacoes: { icon: '◷', label: 'Publicações', desc: 'Onde, quando e em qual campanha o vídeo vai ao ar, com os resultados.' },
 };
+
+// ---------- planejamento de publicação ----------
+
+export const PLATFORMS = [
+  { id: 'YouTube', abbr: 'YT', color: '#a3392b', formats: ['Vídeo', 'Short', 'Live', 'Comunidade'] },
+  { id: 'Instagram', abbr: 'IG', color: '#94506f', formats: ['Reels', 'Carrossel', 'Post', 'Stories', 'Live'] },
+  { id: 'TikTok', abbr: 'TT', color: '#2f5f66', formats: ['Vídeo', 'Carrossel de fotos', 'Live'] },
+  { id: 'Facebook', abbr: 'FB', color: '#3f5a8a', formats: ['Vídeo', 'Reels', 'Post', 'Stories'] },
+  { id: 'LinkedIn', abbr: 'IN', color: '#2d6a8f', formats: ['Post', 'Vídeo', 'Artigo', 'Carrossel'] },
+  { id: 'X', abbr: 'X', color: '#4a4440', formats: ['Post', 'Fio', 'Vídeo'] },
+  { id: 'Pinterest', abbr: 'PIN', color: '#9b2f35', formats: ['Pin', 'Vídeo'] },
+  { id: 'Newsletter', abbr: 'NEWS', color: '#7a6331', formats: ['E-mail', 'Blog'] },
+  { id: 'Outro', abbr: '•', color: '#6b5d48', formats: ['Outro'] },
+];
+export const platformOf = (id) => PLATFORMS.find((p) => p.id === id) || PLATFORMS.at(-1);
+
+export const POST_STATUSES = ['Ideia', 'Planejado', 'Em produção', 'Pronto', 'Agendado', 'Publicado'];
+
+export const OBJECTIVES = [
+  'Alcance e descoberta', 'Engajamento', 'Crescer seguidores', 'Tráfego para link ou site',
+  'Vendas e conversão', 'Lançamento', 'Autoridade e educação', 'Comunidade e relacionamento',
+];
+export const CAMPAIGN_STATUSES = ['Planejando', 'Ativa', 'Pausada', 'Encerrada'];
+export const METRICS = [['views', 'Visualizações'], ['likes', 'Curtidas'], ['comments', 'Comentários'], ['shares', 'Compartilhamentos'], ['saves', 'Salvos']];
+
+export function newPost(extra = {}) {
+  return { id: uid(), platform: 'YouTube', format: 'Vídeo', date: '', time: '', status: 'Planejado', campaign: '', link: '', views: '', likes: '', comments: '', shares: '', saves: '', note: '', ...extra };
+}
 
 export const COLUMN_TYPES = {
   texto: 'Texto',
@@ -271,7 +300,7 @@ export const TAB_PRESETS = [
   { name: 'Página em branco', type: 'pagina', make: () => ({ content: '' }) },
   { name: 'Pesquisa', type: 'pagina', make: () => ({ content: '### Perguntas\n\n- \n\n### Fontes\n\n- \n\n### Dados e números\n\n- \n\n### Citações\n\n> ' }) },
   { name: 'Thumbnail e título', type: 'pagina', make: () => ({ content: '### Títulos para testar\n\n- [ ] \n- [ ] \n\n### Ideias de thumbnail\n\n> [!tip] Rosto + emoção + no máximo 3 palavras. Cole aqui rascunhos e fotos.\n\n### Texto da capa\n\n' }) },
-  { name: 'Publicação', type: 'pagina', make: () => ({ content: '### Descrição\n\n\n\n### Capítulos\n\n- 00:00 Abertura\n\n### Tags\n\n\n\n### Checklist\n\n- [ ] Legendas\n- [ ] Tela final\n- [ ] Cards\n- [ ] Comentário fixado' }) },
+  { name: 'Descrição e capítulos', type: 'pagina', make: () => ({ content: '### Descrição\n\n\n\n### Capítulos\n\n- 00:00 Abertura\n\n### Tags\n\n\n\n### Checklist\n\n- [ ] Legendas\n- [ ] Tela final\n- [ ] Cards\n- [ ] Comentário fixado' }) },
   { name: 'Roteiro', type: 'roteiro', make: () => ({ view: 'tabela', sections: [{ id: uid(), name: 'Cena', hint: '', scenes: [{ id: uid(), narration: '', visual: '', plano: '', image: '' }] }] }) },
   { name: 'Moodboard', type: 'moodboard', make: () => ({ items: [] }) },
   { name: 'Referências', type: 'referencias', make: () => ({ view: 'cartoes', items: [] }) },
@@ -282,6 +311,7 @@ export const TAB_PRESETS = [
   { name: 'Orçamento', type: 'tabela', make: () => table(['Item', 'Categoria', 'Valor', 'Pago'], { Categoria: 'selecao', Valor: 'numero', Pago: 'check' }) },
   { name: 'Tabela em branco', type: 'tabela', make: () => table(['Nome', 'Notas']) },
   { name: 'Texto corrido', type: 'texto', make: () => ({ content: '' }) },
+  { name: 'Publicações', type: 'publicacoes', make: () => ({ posts: [newPost()] }) },
 ];
 
 export function makeTab(presetName, name) {
@@ -328,6 +358,51 @@ export function buildScript(templateId) {
       makeTab('Texto corrido'),
       { id: uid(), type: 'pagina', name: 'Produção', content: PRODUCAO_MD.replace('{{hoje}}', today()) },
       makeTab('Plano de gravação'),
+      makeTab('Publicações'),
+    ],
+  };
+}
+
+const ESTRATEGIA_MD = `### Mensagem principal
+
+> [!tip] Em uma frase: o que as pessoas precisam lembrar depois desta campanha?
+
+### Público
+
+### Pilares de conteúdo
+- 
+- 
+- 
+
+### Chamada para ação
+
+### Ideias de posts
+- [ ] 
+- [ ] `;
+
+export function buildCampaign(title = '') {
+  const now = Date.now();
+  const metas = table(['Métrica', 'Plataforma', 'Meta', 'Resultado'], { Plataforma: 'selecao', Meta: 'numero', Resultado: 'numero' }, 0);
+  for (const m of ['Visualizações', 'Seguidores novos', 'Comentários']) {
+    metas.rows.push({ id: uid(), cells: Object.fromEntries(metas.columns.map((c) => [c.id, c.name === 'Métrica' ? m : ''])) });
+  }
+  return {
+    id: uid(),
+    kind: 'campanha',
+    title,
+    template: '',
+    folder: '',
+    tags: [],
+    status: 'Planejando',
+    cover: '',
+    pinned: false,
+    deleted: false,
+    createdAt: now,
+    updatedAt: now,
+    campaign: { objetivo: OBJECTIVES[0], inicio: '', fim: '', plataformas: [], cor: '#8a2e1d' },
+    tabs: [
+      { id: uid(), type: 'pagina', name: 'Estratégia', content: ESTRATEGIA_MD },
+      { id: uid(), type: 'tabela', name: 'Metas', ...metas },
     ],
   };
 }
