@@ -5,6 +5,8 @@ Visual inspirado em Notion e Obsidian, com modo claro e escuro.
 
 ![Telas do app](docs/preview.png)
 
+![Planejamento](docs/preview-planejar.png)
+
 ## O que faz
 
 - **Importa extratos e faturas**: PDF, Excel (XLSX/XLS/ODS), CSV, OFX, TXT, Markdown e Word (DOCX). PDFs com senha pedem a senha.
@@ -16,6 +18,22 @@ Visual inspirado em Notion e Obsidian, com modo claro e escuro.
 - **Assinaturas**: encontra cobranças de mesmo valor em meses seguidos e pergunta se quer registrar. Mostra o total por mês e por ano e se cada uma já foi paga no mês.
 - **Investimentos**: cadastro manual ou importação da planilha da corretora, alocação, rendimento, reserva de emergência e sugestões.
 - **Exporta** PDF, planilha XLSX, CSV e Markdown pronto para o Obsidian (com frontmatter e tabelas). A planilha exportada pode ser importada de volta.
+
+## Planejar
+
+- **Fechamento do mês guiado**: 7 passos (importar todos os bancos, classificar, confirmar assinaturas, conferir orçamento, atualizar saldos, guardar para as metas, salvar no Obsidian), marcados sozinhos conforme você avança.
+- **Orçamento por categoria** com aviso a partir de 80%, previsão de fechamento do mês pelo ritmo atual e sugestão de limites pela média dos últimos 3 meses.
+- **Essenciais e supérfluos** (regra 50/30/20). Você escolhe o que é essencial; a reserva de emergência passa a usar só esses gastos.
+- **Custo em horas de trabalho** em cada gasto, assinatura e categoria (renda média ÷ horas por mês).
+- **Parcelas a pagar**: reconhece “LOJA 03/10” e “Parcela 3 de 10” e mostra quanto da renda dos próximos 12 meses já está comprometida.
+- **Gastos anuais** (IPVA, IPTU, seguro…): quanto separar por mês, aviso no mês anterior e detecção no extrato.
+- **Metas com prazo**: quanto guardar por mês, registro dos valores guardados.
+- **Patrimônio líquido**: contas + investimentos − dívidas − parcelas futuras, com evolução mês a mês.
+- **Juros e tarifas do ano** (IOF, anuidade, tarifas, juros), por mês e comparado ao ano anterior.
+- **Etiquetas e reembolsos**: #viagem-floripa para somar um evento; PIX devolvido por um amigo abate o gasto em vez de contar como renda.
+- **Rendimento vs. CDI e IPCA**: % do CDI e ganho real de cada investimento e da carteira. As taxas podem ser digitadas ou buscadas na API pública do Banco Central (só a taxa é consultada; nenhum dado seu sai do aparelho).
+- **Imposto de Renda**: rendimentos, despesas médicas e de educação, PGBL e bens e direitos do ano, exportáveis em Markdown e CSV.
+- **Lembretes no iPhone**: botão “Calendário” gera eventos que se repetem com alerta (arquivo .ics) e botão “Lembrete” cria no app Lembretes pelo Atalho “Lastro Lembrete” (passo a passo dentro do app). Vale para assinaturas, contas a pagar, gastos anuais, metas e o fechamento do mês.
 
 ## Segurança
 
@@ -53,6 +71,10 @@ python3 -m http.server 8000
 | `js/categorize.js` | Limpeza da descrição, lojas conhecidas, categorias e regras |
 | `js/analysis.js` | Resumo do mês, comparação, assinaturas recorrentes, observações |
 | `js/exports.js` | Markdown, CSV, XLSX e PDF |
+| `js/plan.js` | Parcelas, orçamento, 50/30/20, horas, tarifas, anuais, metas, patrimônio, CDI/IPCA, IR, fechamento |
+| `js/planviews.js` | Telas da aba Planejar |
+| `js/reminders.js` | Lembretes (Atalhos) e Calendário (.ics) |
+| `js/ui.js` | Ícones, formatação e componentes |
 | `js/app.js` | Telas e navegação |
 | `sw.js` | Cache offline (troque `VERSION` a cada nova versão) |
 | `vendor/` | Bibliotecas de terceiros, incluídas para funcionar offline |

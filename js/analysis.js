@@ -22,7 +22,10 @@ export function months(data) {
 export function summary(data, mk) {
   const tx = data.tx.filter((t) => mkOf(t.date) === mk);
   const out = tx.filter((t) => t.type === 'out');
-  const total = out.reduce((s, t) => s + t.amount, 0);
+  // reembolso (amigo devolvendo a parte do jantar) abate o gasto da categoria
+  const refunds = tx.filter((t) => t.type === 'refund');
+  const refunded = refunds.reduce((s, t) => s + t.amount, 0);
+  const total = out.reduce((s, t) => s + t.amount, 0) - refunded;
   const incomeTx = tx.filter((t) => t.type === 'in').reduce((s, t) => s + t.amount, 0);
   const income = incomeTx || data.settings.income || 0;
   const invested = tx.filter((t) => t.type === 'inv').reduce((s, t) => s + t.amount, 0);
@@ -33,9 +36,10 @@ export function summary(data, mk) {
     const m = (byMerchant[t.key] ||= { key: t.key, name: t.merchant, cat: t.cat, total: 0, count: 0 });
     m.total += t.amount; m.count += 1;
   });
+  refunds.forEach((t) => { if (byCat[t.cat]) byCat[t.cat] = Math.max(0, byCat[t.cat] - t.amount); });
   const prevMk = shiftMonth(mk, -1);
   const prevOut = data.tx.filter((t) => t.type === 'out' && mkOf(t.date) === prevMk);
-  const last = prevOut.reduce((s, t) => s + t.amount, 0);
+  const last = prevOut.reduce((s, t) => s + t.amount, 0) - data.tx.filter((t) => t.type === 'refund' && mkOf(t.date) === prevMk).reduce((s, t) => s + t.amount, 0);
   const lastByCat = {};
   prevOut.forEach((t) => { lastByCat[t.cat] = (lastByCat[t.cat] || 0) + t.amount; });
   const cats = Object.entries(byCat).map(([id, value]) => ({ id, value, last: lastByCat[id] || 0 })).sort((a, b) => b.value - a.value);
@@ -43,13 +47,13 @@ export function summary(data, mk) {
   const unknown = out.filter((t) => CATS[t.cat]?.unknown);
   // só compara com o mês anterior se ele tiver dados suficientes (não só uma ou duas cobranças soltas)
   const comparable = prevOut.length >= 5 && last > 0;
-  return { mk, prevMk, tx, out, total, income, incomeFromTx: !!incomeTx, invested, last, delta: comparable ? (total - last) / last : null, cats, merchants, unknown };
+  return { mk, prevMk, tx, out, refunded, total, income, incomeFromTx: !!incomeTx, invested, last, delta: comparable ? (total - last) / last : null, cats, merchants, unknown };
 }
 
 export function history(data, mk, n = 6) {
   return Array.from({ length: n }, (_, i) => {
     const m = shiftMonth(mk, i - n + 1);
-    return { mk: m, total: data.tx.filter((t) => t.type === 'out' && mkOf(t.date) === m).reduce((s, t) => s + t.amount, 0) };
+    return { mk: m, total: data.tx.filter((t) => mkOf(t.date) === m).reduce((s, t) => s + (t.type === 'out' ? t.amount : t.type === 'refund' ? -t.amount : 0), 0) };
   });
 }
 

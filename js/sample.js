@@ -29,10 +29,20 @@ export function sampleData() {
     const add = (day, desc, amount) => {
       if (day > days) return;
       const c = classify(desc, amount);
-      tx.push({ id: id++, date: `${mk}-${String(day).padStart(2, '0')}`, desc, ...c, amount: Math.abs(+amount.toFixed(2)), src: 'exemplo' });
+      const tags = i === 1 && /CINEMARK|BAR DO ZE|CLINICA/.test(desc) ? [/CLINICA/.test(desc) ? 'saude-ir' : 'aniversario-ana'] : undefined;
+      const t = { id: id++, date: `${mk}-${String(day).padStart(2, '0')}`, desc, ...c, amount: Math.abs(+amount.toFixed(2)), src: 'exemplo', tags };
+      if (/LUCAS PEREIRA/.test(desc)) Object.assign(t, { type: 'refund', cat: 'lazer', tags: ['aniversario-ana'] });
+      tx.push(t);
     };
     FIXED.forEach(([d, desc, v, kind]) => add(d, desc, kind === 'var' ? v * (0.85 + r() * 0.3) : v));
     if (i <= 2) add(18, 'AMAZON PRIME BR', -19.9);
+    // compras parceladas que seguem nos próximos meses
+    if (i <= 3) add(9, `MAGAZINE LUIZA ${String(4 - i).padStart(2, '0')}/10`, -289.9);
+    if (i <= 1) add(20, `DECATHLON ${String(2 - i).padStart(2, '0')}/06`, -133.5);
+    if (i === 4) add(3, 'IPVA SP 2026 COTA UNICA', -2380.4);
+    if (i === 2) add(12, 'TARIFA PACOTE SERVICOS', -39.9);
+    add(15, 'IOF COMPRA INTERNACIONAL', -(2 + r() * 6));
+    if (i === 1) { add(22, 'CLINICA ODONTO SORRISO', -380); add(23, 'PIX RECEBIDO LUCAS PEREIRA', 85); }
     VARIABLE.forEach(([desc, v, base, spread]) => {
       // delivery cresce nos últimos meses, para o exemplo ter o que observar
       const n = base + Math.floor(r() * (spread + 1)) + (desc.startsWith('IFOOD') && i === 0 ? 2 : 0);
@@ -49,12 +59,30 @@ export function sampleData() {
       { id: 's5', name: 'iCloud+', key: 'ICLOUD+', amount: 14.9, day: 27, cat: 'assinaturas', since: shiftMonth(end, -5) },
     ],
     inv: [
-      { id: 'i1', name: 'Tesouro Selic 2029', kind: 'Reserva de emergência', value: 12400, invested: 11300 },
-      { id: 'i2', name: 'CDB 112% CDI', kind: 'Renda fixa', value: 8200, invested: 7600 },
-      { id: 'i3', name: 'Ações e FIIs', kind: 'Renda variável', value: 6150, invested: 6400 },
+      { id: 'i1', name: 'Tesouro Selic 2029', kind: 'Reserva de emergência', value: 12400, invested: 11300, since: shiftMonth(end, -12) },
+      { id: 'i2', name: 'CDB 112% CDI', kind: 'Renda fixa', value: 8200, invested: 7600, since: shiftMonth(end, -9) },
+      { id: 'i3', name: 'Ações e FIIs', kind: 'Renda variável', value: 6150, invested: 6400, since: shiftMonth(end, -14) },
       { id: 'i4', name: 'IVVB11', kind: 'Exterior', value: 4300, invested: 3800 },
       { id: 'i5', name: 'Bitcoin', kind: 'Cripto', value: 900, invested: 700 },
     ],
     imports: [{ id: 'x', name: 'dados-de-exemplo', kind: 'extrato', count: tx.length, at: new Date().toISOString() }],
+    budgets: { delivery: 450, mercado: 1100, compras: 900, lazer: 400, transporte: 700 },
+    annual: [
+      { id: 'a1', name: 'IPVA', amount: 2380.4, month: 1 },
+      { id: 'a2', name: 'IPTU', amount: 1450, month: 2 },
+      { id: 'a3', name: 'Seguro do carro', amount: 2100, month: 6 },
+      { id: 'a4', name: 'Presentes de fim de ano', amount: 900, month: 12 },
+    ],
+    goals: [
+      { id: 'g1', name: 'Viagem para o Chile', target: 9000, saved: 3200, deadline: shiftMonth(end, 8) },
+      { id: 'g2', name: 'Troca do celular', target: 4500, saved: 4500, deadline: shiftMonth(end, 1) },
+    ],
+    accounts: [
+      { id: 'c1', name: 'Nubank', kind: 'conta', value: 2340.55, updated: new Date().toISOString() },
+      { id: 'c2', name: 'Inter', kind: 'conta', value: 870.1, updated: new Date().toISOString() },
+      { id: 'd1', name: 'Financiamento do carro', kind: 'divida', value: 18400, updated: new Date().toISOString() },
+    ],
+    bills: [{ id: 'b1', name: 'Fatura Nubank', day: 10 }, { id: 'b2', name: 'Fatura Inter', day: 15 }],
+    nwHistory: Object.fromEntries([-5, -4, -3, -2, -1].map((k, j) => [shiftMonth(end, k), { net: 9800 + j * 1150, assets: 0, liabilities: 0 }])),
   };
 }

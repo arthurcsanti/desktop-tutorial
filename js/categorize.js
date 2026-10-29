@@ -14,8 +14,9 @@ export const CATS = {
   outros:      { name: 'Não identificado', color: 'var(--c0)', unknown: true },
 };
 
-// tipos: out = gasto, in = entrada, inv = aplicação, skip = pagamento de fatura / transferência própria
-export const TYPES = { out: 'Gasto', in: 'Entrada', inv: 'Investimento', skip: 'Ignorado' };
+// tipos: out = gasto, in = entrada, refund = reembolso (abate um gasto), inv = aplicação,
+// skip = pagamento de fatura / transferência própria
+export const TYPES = { out: 'Gasto', in: 'Entrada', refund: 'Reembolso', inv: 'Investimento', skip: 'Ignorado' };
 
 // [padrão na descrição normalizada, nome exibido, categoria, tipo opcional]
 const KNOWN = [
@@ -145,6 +146,10 @@ const KNOWN = [
   ['AIRBNB', 'Airbnb', 'lazer'],
   ['BOOKING|HOTEL|POUSADA', 'Hospedagem', 'lazer'],
   ['BAR |BOTECO|CHOPERIA|CERVEJARIA|PUB ', null, 'lazer'],
+  // impostos e anuais
+  ['IPVA', 'IPVA', 'transporte'],
+  ['LICENCIAMENTO|DETRAN', 'Licenciamento', 'transporte'],
+  ['SEGURO AUTO|PORTO SEGURO|AZUL SEGURO|TOKIO MARINE|ALLIANZ|MAPFRE|HDI SEGURO|YOUSE', 'Seguro', 'transporte'],
   // taxas
   ['IOF', 'IOF', 'taxas'],
   ['JUROS|MULTA|ENCARGO|MORA ', 'Juros e multas', 'taxas'],
