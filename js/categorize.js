@@ -20,11 +20,14 @@ export const TYPES = { out: 'Gasto', in: 'Entrada', inv: 'Investimento', skip: '
 // [padrão na descrição normalizada, nome exibido, categoria, tipo opcional]
 const KNOWN = [
   // ignorados
-  ['PAGAMENTO DE FATURA|PAGAMENTO FATURA|PAGTO FATURA|PAG FATURA|PAGAMENTO RECEBIDO|PGTO CARTAO|PAGAMENTO CARTAO', 'Pagamento de fatura', 'outros', 'skip'],
-  ['RESGATE', 'Resgate de investimento', 'outros', 'in'],
-  ['APLICACAO|APLIC |TESOURO DIRETO|CDB|LCI|LCA|CORRETORA|XP INVEST|RICO INVEST|CLEAR CORRETORA|BTG PACTUAL|NUINVEST|INTER INVEST|AVENUE|NOMAD', 'Aplicação', 'outros', 'inv'],
+  ['PAGAMENTO DE FATURA|PAGAMENTO FATURA|PAGTO FATURA|PAG FATURA|PAGAMENTO RECEBIDO|PGTO CARTAO|PAGAMENTO CARTAO|PAGAMENTO EFETUADO|FATURA CARTAO|PAGAMENTO DA FATURA|PAG BOLETO FATURA|INT PAG FATURA|NU PAGAMENTOS|PAGTO DEBITO AUTOMATICO|DEBITO AUTOMATICO FATURA|PAGAMENTOS VALIDOS|ITAU (?:BLACK|PLATINUM|GOLD|UNICLASS|VISA|MASTERCARD|MC|PERSONNALITE|AZUL|LATAM)|SANTANDER (?:CARTAO|CARTOES|SX|UNIQUE|ELITE)|PAGAMENTO CARTAO SANTANDER|MERCADO PAGO FATURA|FATURA MERCADO PAGO', 'Pagamento de fatura', 'outros', 'skip'],
+  ['ENTRE CONTAS|MESMA TITULARIDADE|CONTA PROPRIA|MESMO TITULAR|TRANSFERENCIA ENTRE', 'Transferência entre contas', 'outros', 'skip'],
+  ['DIVIDENDO|JUROS SOBRE CAPITAL|\\bJCP\\b|PROVENTOS|AMORTIZACAO', 'Proventos', 'outros', 'in'],
+  // resgate é o seu próprio dinheiro voltando: não conta como renda
+  ['RESGATE', 'Resgate de investimento', 'outros', 'skip'],
+  ['APLICACAO|APLIC |CAIXINHA|PORQUINHO|COFRINHO|DINHEIRO GUARDADO|DINHEIRO RESERVADO|RESERVA DE DINHEIRO|TESOURO DIRETO|CDB|LCI|LCA|CORRETORA|XP INVEST|RICO INVEST|CLEAR CORRETORA|BTG PACTUAL|NUINVEST|INTER INVEST|AVENUE|NOMAD', 'Aplicação', 'outros', 'inv'],
   ['SALARIO|PROVENTO|FOLHA DE PAGAMENTO|REMUNERACAO', 'Salário', 'outros', 'in'],
-  ['RENDIMENTO', 'Rendimento', 'outros', 'in'],
+  ['RENDIMENTO|REND PAGO|REMUNERACAO DA CONTA', 'Rendimento', 'outros', 'in'],
   // comer fora (antes de UBER e AMAZON)
   ['IFOOD|IFD\\*|IFD ', 'iFood', 'delivery'],
   ['UBER EATS|UBEREATS', 'Uber Eats', 'delivery'],
@@ -157,12 +160,38 @@ const NOISE = [
   /\b\d+\b/g,
 ];
 
+/** PIX/TED para você mesmo (ex.: Nubank → Inter) não é gasto nem renda. */
+export function isOwnTransfer(s, ownName) {
+  if (!ownName || !TRANSFER.test(s)) return false;
+  const words = strip(ownName).split(/\s+/).filter((w) => w.length > 2 && !SMALL.has(w));
+  if (words.length < 2) return false;
+  const hits = words.filter((w) => new RegExp(`\\b${w}\\b`).test(s)).length;
+  return hits >= Math.min(2, words.length) && new RegExp(`\\b${words[0]}\\b`).test(s);
+}
+
 const TRANSFER = /\b(PIX|TED|DOC|TRANSF\w*)\b/;
 // "Transferência enviada pelo Pix - JOAO SILVA - 034.***.***-12" → "Joao Silva"
 function transferName(s) {
   const name = s.replace(/\b(PIX|TED|DOC|TRANSF\w*|ENVIAD[OA]|RECEBID[OA]|PELO|PARA|DE|QR ?CODE|CHAVE|AGENDAD[OA]|CONTA|CORRENTE|SISPAG)\b/g, ' ')
     .replace(/[\d*./-]+/g, ' ').replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
   return titleCase(name.split(' ').slice(0, 3).join(' '));
+}
+
+// categoria que o próprio banco manda (fatura do Inter, Nubank, XP...) → categoria do app
+const BANK_CATS = [
+  [/RESTAURANTE|ALIMENTA|LANCHONETE|FAST ?FOOD|DELIVERY|BAR(?:ES)?\b|CAFE/, 'delivery'],
+  [/SUPERMERCADO|MERCADO|HIPERMERCADO|PADARIA|ACOUGUE/, 'mercado'],
+  [/TRANSPORTE|COMBUSTIVEL|POSTO|ESTACIONAMENTO|PEDAGIO|AUTOMOTIVO|VEICULO|MOBILIDADE/, 'transporte'],
+  [/SAUDE|FARMACIA|DROGARIA|HOSPITAL|MEDIC|ODONTO|ACADEMIA|ESPORTE/, 'saude'],
+  [/VESTUARIO|ROUPA|LOJA|DEPARTAMENTO|ELETRONICO|COMPRAS|CASA E DECORA|BELEZA|PET/, 'compras'],
+  [/ENTRETENIMENTO|LAZER|CULTURA|VIAGE|TURISMO|HOTEL|HOSPEDAGEM|JOGO/, 'lazer'],
+  [/ASSINATURA|STREAMING|SERVICOS DIGITAIS|DIGITAL/, 'assinaturas'],
+  [/MORADIA|ALUGUEL|CONDOMINIO|ENERGIA|AGUA|TELEFON|INTERNET|CONTAS/, 'moradia'],
+  [/JUROS|TARIFA|ENCARGO|IOF|ANUIDADE/, 'taxas'],
+];
+export function bankCategory(name) {
+  const s = strip(name || '');
+  return BANK_CATS.find(([re]) => re.test(s))?.[1] || null;
 }
 
 export const strip = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
@@ -188,7 +217,7 @@ function titleCase(s) {
  * @param {number} signed valor com sinal (negativo = saída) ou NaN se desconhecido
  * @param {Array} rules regras do usuário [{key, cat, name?}]
  */
-export function classify(desc, signed, rules = []) {
+export function classify(desc, signed, rules = [], ownName = '') {
   const s = strip(desc);
   const key = merchantKey(desc);
   const rule = rules.find((r) => r.key === key);
@@ -198,8 +227,10 @@ export function classify(desc, signed, rules = []) {
   // estorno é dinheiro voltando
   if (/ESTORNO|REEMBOLSO|DEVOLUCAO|CASHBACK/.test(s)) type = 'in';
   if (type === 'in' && signed < 0 && !known?.type) type = 'out';
+  if (isOwnTransfer(s, ownName)) return { key: 'TRANSFERÊNCIA ENTRE CONTAS', merchant: 'Transferência entre contas', cat: 'outros', type: 'skip' };
   const isPix = !known && TRANSFER.test(s);
-  const name = rule?.name || known?.name || (isPix ? `PIX · ${transferName(s) || 'sem nome'}` : titleCase(key));
+  const via = { PIX: 'PIX', TED: 'TED', DOC: 'DOC' }[s.match(TRANSFER)?.[1]] || 'Transferência';
+  const name = rule?.name || known?.name || (isPix ? `${via} · ${transferName(s) || 'sem nome'}` : titleCase(key));
   let cat = rule?.cat || (known && !known.type ? known.cat : 'outros');
   if (type !== 'out') cat = rule?.cat || 'outros';
   return { key, merchant: name, cat, type };

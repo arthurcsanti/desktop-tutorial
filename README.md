@@ -8,6 +8,8 @@ Visual inspirado em Notion e Obsidian, com modo claro e escuro.
 ## O que faz
 
 - **Importa extratos e faturas**: PDF, Excel (XLSX/XLS/ODS), CSV, OFX, TXT, Markdown e Word (DOCX). PDFs com senha pedem a senha.
+- **Bancos testados com os formatos de exportação**: Nubank (conta e fatura), Inter (extrato e fatura), Itaú, Santander, Mercado Pago e XP (fatura e posição de investimentos). O banco de origem é reconhecido automaticamente.
+- **Transferências entre suas contas** (PIX do Nubank para o Inter, por exemplo) não contam como gasto nem renda: basta informar seu nome em Ajustes. Pagamento de fatura, caixinhas/porquinhos e resgates também ficam de fora dos gastos.
 - **Organiza sozinho**: reconhece mais de 100 lojas e serviços brasileiros (iFood, Uber, Pão de Açúcar, Netflix…), separa gastos, entradas, aplicações e pagamentos de fatura, e ignora lançamentos repetidos.
 - **Aprende com você**: ao trocar a categoria de um lançamento, todos os da mesma loja mudam junto e os próximos seguem a regra.
 - **Relatório do mês**: total gasto, comparação com o mês anterior, categorias, lojas, não identificados e observações.

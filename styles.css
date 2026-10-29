@@ -474,3 +474,4 @@ a.cat-row, a.card, a.row { color: inherit; text-decoration: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .side-import { justify-content: flex-start; }
 body.privacy #app, body.privacy #sheet { filter: blur(24px); }
+.inline-input.wide { width: 150px; text-align: left; }

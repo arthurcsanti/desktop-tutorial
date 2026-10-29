@@ -87,7 +87,7 @@ function guessYear(text) {
 }
 
 const IGNORE_LINE = /\b(SALDO|TOTAL|SUBTOTAL|LIMITE|VENCIMENTO|PAGAMENTO M[IÍ]NIMO|RESUMO|FATURA ANTERIOR|ENCARGOS PREVISTOS|CET|TAXA DE JUROS)\b/i;
-const CARD_CREDIT = /PAGAMENTO|ESTORNO|REEMBOLSO|CR[EÉ]DITO DE|CASHBACK|DEVOLU/i;
+const CARD_CREDIT = /PAGAMENTO|PAGTO|PGTO|ESTORNO|REEMBOLSO|CR[EÉ]DITO DE|CASHBACK|DEVOLU/i;
 
 // Cartão de crédito costuma listar compras como valores positivos.
 // Se nenhum valor veio negativo, consideramos tudo saída (menos pagamentos e estornos).
@@ -101,13 +101,15 @@ function normalizeSigns(list) {
 
 /* ---------- tabelas (CSV, XLSX, MD, DOCX) ---------- */
 const H = {
-  date: /^(data|date|dt|dia)\b/i,
-  desc: /(descri|hist[oó]rico|title|t[ií]tulo|estabelecimento|lan[cç]amento|memo|detalhe|loja|nome|benefici|favorecido)/i,
-  amount: /^(valor|amount|value|quantia|montante|r\$|pre[cç]o)/i,
+  // inclui os nomes de coluna em inglês do Mercado Pago (RELEASE_DATE, TRANSACTION_NET_AMOUNT...)
+  date: /^(data|date|dt|dia)\b|_date$/i,
+  desc: /(descri|hist[oó]rico|title|t[ií]tulo|estabelecimento|lan[cç]amento|memo|detalhe|loja|nome|benefici|favorecido|transaction_type)/i,
+  amount: /^(valor|amount|value|quantia|montante|r\$|pre[cç]o)|_amount$/i,
   debit: /(d[eé]bito|sa[ií]da)/i,
   credit: /(cr[eé]dito|entrada)/i,
   cat: /^(categoria|category)/i,
   type: /^(tipo|type|natureza)\b/i,
+  parcel: /^parcela/i,
   balance: /saldo|balance/i,
 };
 
@@ -134,6 +136,7 @@ export function parseTable(rows, text = '') {
     const iCred = iAmt < 0 ? col(H.credit) : -1;
     const iCat = col(H.cat);
     const iType = col(H.type);
+    const iParcel = col(H.parcel);
     for (const r of rows.slice(hi + 1)) {
       const date = parseDate(r[iDate], year);
       if (!date) continue;
@@ -144,12 +147,13 @@ export function parseTable(rows, text = '') {
         amount = Number.isFinite(d) && d !== 0 ? -Math.abs(d) : Number.isFinite(c) ? Math.abs(c) : NaN;
       }
       if (!Number.isFinite(amount) || amount === 0) continue;
-      if (iType >= 0) {
-        const t = String(r[iType] ?? '').toUpperCase();
-        if (/^(D|DEB|SA[IÍ]DA|GASTO)/.test(t)) amount = -Math.abs(amount);
-        else if (/^(C|CRED|ENTRADA|RECEITA)/.test(t)) amount = Math.abs(amount);
-      }
-      const desc = iDescs.map((i) => String(r[i] ?? '').trim()).filter(Boolean).join(' · ') || 'Sem descrição';
+      // "Tipo" pode ser D/C ou algo como "Compra à vista" / "Parcela 2/3" (fatura do Inter)
+      const typeText = iType >= 0 ? String(r[iType] ?? '').trim() : '';
+      if (/^(D|DEB|D[EÉ]BITO|SA[IÍ]DA|GASTO|DESPESA)$/i.test(typeText)) amount = -Math.abs(amount);
+      else if (/^(C|CRED|CR[EÉ]DITO|ENTRADA|RECEITA)$/i.test(typeText)) amount = Math.abs(amount);
+      const parcel = [typeText, iParcel >= 0 ? String(r[iParcel] ?? '') : ''].map((v) => v.match(/(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})/i)).find(Boolean);
+      let desc = iDescs.map((i) => String(r[i] ?? '').trim()).filter(Boolean).join(' · ') || 'Sem descrição';
+      if (parcel && +parcel[2] > 1 && !/\d{1,2}\/\d{1,2}/.test(desc)) desc += ` ${parcel[1].padStart(2, '0')}/${parcel[2].padStart(2, '0')}`;
       if (IGNORE_LINE.test(desc) && /^SALDO/i.test(desc)) continue;
       out.push({ date, desc, amount, cat: iCat >= 0 ? String(r[iCat] ?? '').trim() : undefined });
     }
@@ -290,23 +294,54 @@ async function sheetRows(buf) {
   return sheets;
 }
 
+const BANKS = [
+  ['Nubank', /NUBANK|NU PAGAMENTOS|NU FINANCEIRA|Identificador/i],
+  ['Inter', /BANCO INTER|\bINTER&CO|\bINTER\b|Data Lan[cç]amento;Hist[oó]rico/i],
+  ['Itaú', /ITA[UÚ]/i],
+  ['Santander', /SANTANDER/i],
+  ['Mercado Pago', /MERCADO ?PAGO|RELEASE_DATE|TRANSACTION_NET_AMOUNT/i],
+  ['XP', /\bXP\b|XP INVESTIMENTOS|XP INC/i],
+  ['Bradesco', /BRADESCO/i],
+  ['Banco do Brasil', /BANCO DO BRASIL|\bBB\b/i],
+  ['Caixa', /CAIXA ECON/i],
+  ['C6', /\bC6\b/i],
+  ['PicPay', /PICPAY/i],
+];
+/** Descobre o banco pelo nome do arquivo ou pelo conteúdo. */
+export function detectBank(name, text = '') {
+  const hay = `${name}\n${text.slice(0, 4000)}`;
+  return BANKS.find(([, re]) => re.test(hay))?.[0] || null;
+}
+
 const ext = (name) => (name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() || '';
 
-/** Lê o arquivo e retorna lançamentos. */
-export async function readStatement(file, { askPassword } = {}) {
+/** Lê o arquivo e retorna { items, bank }. */
+export async function readStatement(file, opts = {}) {
+  const { items, text } = await readAny(file, opts);
+  return { items, bank: detectBank(file.name, text) };
+}
+
+async function readAny(file, { askPassword } = {}) {
   const e = ext(file.name);
   if (['xlsx', 'xls', 'xlsm', 'ods', 'numbers'].includes(e)) {
     const sheets = await sheetRows(await file.arrayBuffer());
     const results = sheets.map((rows) => parseTable(rows));
-    return results.sort((a, b) => b.length - a.length)[0] || [];
+    return { items: results.sort((a, b) => b.length - a.length)[0] || [], text: sheets.flat(2).slice(0, 400).join(' ') };
   }
-  if (e === 'pdf') return parseLines(await pdfText(await file.arrayBuffer(), askPassword));
+  if (e === 'pdf') {
+    const text = await pdfText(await file.arrayBuffer(), askPassword);
+    return { items: parseLines(text), text };
+  }
   if (e === 'docx') {
     const { rows, text } = await docxContent(await file.arrayBuffer());
     const fromTable = rows.length ? parseTable(rows, text) : [];
-    return fromTable.length ? fromTable : parseLines(text + '\n' + rows.map((r) => r.join(' ')).join('\n'));
+    return { items: fromTable.length ? fromTable : parseLines(text + '\n' + rows.map((r) => r.join(' ')).join('\n')), text };
   }
   const text = await file.text();
+  return { items: readText(text, e), text };
+}
+
+function readText(text, e) {
   if (e === 'ofx' || e === 'qfx' || /<OFX>/i.test(text)) return parseOFX(text);
   if (e === 'md' || e === 'markdown') {
     const rows = mdTables(text);

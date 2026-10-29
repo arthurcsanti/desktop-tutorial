@@ -1,6 +1,6 @@
 // Lastro — interface.
 import * as vault from './vault.js';
-import { CATS, TYPES, classify, merchantKey } from './categorize.js';
+import { CATS, TYPES, classify, merchantKey, bankCategory, isOwnTransfer, strip } from './categorize.js';
 import { readStatement, readInvestments } from './parsers.js';
 import { summary, history, months, insights, recurring, subStatus, subsTotal, avgSpend, monthLabel, monthName, monthShort, mkOf, currentMk, MONTHS } from './analysis.js';
 import * as exporter from './exports.js';
@@ -645,6 +645,8 @@ const views = {
 
       <div class="section"><div class="section-head"><h2 class="section-title">Finanças</h2></div>
         <div class="list">
+          <label class="row plain"><div class="row-main"><div class="row-title">Seu nome completo</div><div class="row-sub">Para reconhecer PIX entre suas contas (Nubank → Inter…) e não contar como gasto</div></div>
+            <input class="inline-input wide" data-setting-text="ownName" value="${esc(st.ownName || '')}" placeholder="Nome Sobrenome" autocomplete="name"></label>
           <label class="row plain"><div class="row-main"><div class="row-title">Renda mensal</div><div class="row-sub">Usada quando o extrato não tem o salário</div></div>
             <input class="inline-input" inputmode="decimal" data-setting="income" value="${st.income ? st.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}" placeholder="0,00"></label>
           <div class="row plain"><div class="row-main"><div class="row-title">Meta de investimento</div><div class="row-sub">Parte da renda para aplicar todo mês</div></div>${seg('goalPct', st.goalPct, [[0.1, '10%'], [0.2, '20%'], [0.3, '30%']])}</div>
@@ -659,7 +661,7 @@ const views = {
           <button class="row plain row-btn" data-action="sample"><div class="row-main"><div class="row-title">Carregar dados de exemplo</div></div>${icon('chevron')}</button>
           <button class="row plain row-btn" data-action="wipe"><div class="row-main"><div class="row-title danger">Apagar todos os dados</div></div></button>
         </div></div>
-      <p class="empty-hint">Lastro · versão 1.0</p>`;
+      <p class="empty-hint">Lastro · versão 1.1</p>`;
   },
 };
 
@@ -736,7 +738,7 @@ async function handleFile(file, mode) {
       pending = { mode, file: file.name, items };
       return investReview();
     }
-    const raw = await readStatement(file, { askPassword });
+    const { items: raw, bank } = await readStatement(file, { askPassword });
     // evita duplicar lançamentos já importados
     const seen = new Map();
     data.tx.forEach((t) => { const k = `${t.date}|${t.amount.toFixed(2)}|${t.key}`; seen.set(k, (seen.get(k) || 0) + 1); });
@@ -744,15 +746,18 @@ async function handleFile(file, mode) {
     const catByName = Object.fromEntries(Object.entries(CATS).map(([k, c]) => [c.name.toLowerCase(), k]));
     const items = [];
     raw.forEach((r) => {
-      const c = classify(r.desc, r.amount, data.rules);
-      // planilha exportada pelo próprio app traz a categoria
-      if (r.cat && catByName[r.cat.toLowerCase()] && c.type === 'out') c.cat = catByName[r.cat.toLowerCase()];
-      const t = { date: r.date, desc: r.desc, ...c, amount: Math.abs(+r.amount.toFixed(2)) };
+      const c = classify(r.desc, r.amount, data.rules, data.settings.ownName);
+      // planilha exportada pelo próprio app traz a categoria; faturas de alguns bancos também
+      if (r.cat && c.type === 'out') {
+        const fromFile = catByName[r.cat.toLowerCase()] || (c.cat === 'outros' ? bankCategory(r.cat) : null);
+        if (fromFile) c.cat = fromFile;
+      }
+      const t = { date: r.date, desc: r.desc, ...c, amount: Math.abs(+r.amount.toFixed(2)), bank: bank || undefined };
       const k = `${t.date}|${t.amount.toFixed(2)}|${t.key}`;
       if (seen.get(k)) { seen.set(k, seen.get(k) - 1); dupes++; return; }
       items.push(t);
     });
-    pending = { mode, file: file.name, items, dupes };
+    pending = { mode, file: file.name, items, dupes, bank };
     txReview();
   } catch (e) {
     openSheet(`<h2>Não deu para ler</h2><p class="page-sub">${esc(e.message || 'Formato não reconhecido')}</p>
@@ -762,7 +767,7 @@ async function handleFile(file, mode) {
 }
 
 function txReview() {
-  const { items, dupes, file } = pending;
+  const { items, dupes, file, bank } = pending;
   if (!items.length) {
     return openSheet(`<h2>Nada novo</h2><p class="page-sub">${dupes ? `Os ${dupes} lançamentos de ${esc(file)} já estavam no app.` : `Não encontramos lançamentos em ${esc(file)}.`}</p>
       ${dupes ? '' : `<p class="note">${icon('info')} O arquivo precisa ter data, descrição e valor. Se for PDF escaneado (foto), exporte em CSV ou OFX no app do banco.</p>`}
@@ -772,7 +777,7 @@ function txReview() {
   const dates = items.map((t) => t.date).sort();
   const unknown = out.filter((t) => CATS[t.cat].unknown).length;
   openSheet(`<h2>${items.length} lançamentos</h2>
-    <p class="page-sub">${esc(file)} · ${dateOf(dates[0]).toLocaleDateString('pt-BR')} a ${dateOf(dates[dates.length - 1]).toLocaleDateString('pt-BR')}</p>
+    <p class="page-sub">${bank ? `<b>${bank}</b> · ` : ''}${esc(file)} · ${dateOf(dates[0]).toLocaleDateString('pt-BR')} a ${dateOf(dates[dates.length - 1]).toLocaleDateString('pt-BR')}</p>
     <div class="grid-2" style="margin-bottom:14px">
       <div class="card stat"><span>Gastos</span><strong>${money(out.reduce((a, t) => a + t.amount, 0))}</strong><em>${out.length} lançamentos</em></div>
       <div class="card stat"><span>Sem categoria</span><strong>${unknown}</strong><em>${dupes ? `${dupes} repetidos ignorados` : 'revise depois em Gastos'}</em></div>
@@ -799,11 +804,11 @@ function investReview() {
 }
 
 function confirmImport() {
-  const { items, file } = pending;
+  const { items, file, bank } = pending;
   let id = data.tx.reduce((m, t) => Math.max(m, t.id), 0);
   const importId = uid();
   items.forEach((t) => data.tx.push({ ...t, id: ++id, src: importId }));
-  data.imports.push({ id: importId, name: file, kind: 'extrato', count: items.length, at: new Date().toISOString() });
+  data.imports.push({ id: importId, name: file, bank, kind: 'extrato', count: items.length, at: new Date().toISOString() });
   const latest = items.map((t) => t.date).sort().pop();
   mk = mkOf(latest);
   pending = null;
@@ -836,7 +841,7 @@ function txSheet(id) {
   const same = data.tx.filter((x) => x.key === t.key).length;
   openSheet(`<div class="tx-head">${avatar(t.merchant, t.type === 'out' ? t.cat : 'saude')}<div><h2>${esc(t.merchant)}</h2><span class="row-sub">${d.getDate()} de ${MONTHS[d.getMonth()]} · ${WEEKDAYS[d.getDay()]}</span></div></div>
     <div class="hero-value ${t.type === 'in' ? 'pos' : ''}">${t.type === 'in' ? '+' : '−'}${money(t.amount)}</div>
-    <p class="raw">${esc(t.desc)}</p>
+    <p class="raw">${esc(t.desc)}${t.bank ? ` · ${esc(t.bank)}` : ''}</p>
     <div class="section-head"><h2 class="section-title">Tipo</h2></div>
     <div class="seg wide">${Object.entries(TYPES).map(([k, l]) => `<button class="${t.type === k ? 'on' : ''}" data-action="set-type" data-id="${t.id}" data-type="${k}">${l}</button>`).join('')}</div>
     ${t.type === 'out' ? `<div class="section-head" style="margin-top:18px"><h2 class="section-title">Categoria</h2></div>
@@ -902,7 +907,7 @@ function rulesSheet() {
 
 function importsSheet() {
   openSheet(`<h2>Arquivos importados</h2><p class="page-sub">Remover uma importação apaga os lançamentos dela</p>
-    ${data.imports.length ? `<div class="list">${[...data.imports].reverse().map((x) => `<div class="row plain"><div class="row-main"><div class="row-title">${esc(x.name)}</div><div class="row-sub">${x.count} ${x.kind === 'investimentos' ? 'investimentos' : 'lançamentos'} · ${new Date(x.at).toLocaleDateString('pt-BR')}</div></div>
+    ${data.imports.length ? `<div class="list">${[...data.imports].reverse().map((x) => `<div class="row plain"><div class="row-main"><div class="row-title">${esc(x.name)}</div><div class="row-sub">${x.bank ? `${esc(x.bank)} · ` : ''}${x.count} ${x.kind === 'investimentos' ? 'investimentos' : 'lançamentos'} · ${new Date(x.at).toLocaleDateString('pt-BR')}</div></div>
       ${x.kind !== 'investimentos' ? `<button class="icon-btn" data-action="import-del" data-id="${x.id}" aria-label="Remover">${icon('trash')}</button>` : ''}</div>`).join('')}</div>` : '<p class="empty-hint">Nada importado ainda.</p>'}`);
 }
 
@@ -1021,6 +1026,18 @@ document.addEventListener('click', async (e) => {
 });
 
 document.addEventListener('change', (e) => {
+  if (e.target.dataset?.settingText === 'ownName' && data) {
+    data.settings.ownName = e.target.value.trim();
+    // reclassifica transferências já importadas
+    let n = 0;
+    data.tx.forEach((t) => {
+      if (t.type !== 'skip' && isOwnTransfer(strip(t.desc), data.settings.ownName)) {
+        Object.assign(t, { type: 'skip', cat: 'outros', key: 'TRANSFERÊNCIA ENTRE CONTAS', merchant: 'Transferência entre contas' }); n++;
+      }
+    });
+    save(); toast(n ? `${n} transferência${n > 1 ? 's' : ''} entre contas encontrada${n > 1 ? 's' : ''}` : 'Salvo');
+    return;
+  }
   const s = e.target.dataset?.setting;
   if (!s || !data) return;
   data.settings[s] = parseMoneyInput(e.target.value);

@@ -1,6 +1,6 @@
 // Guarda todos os arquivos do app no aparelho: depois da primeira abertura, funciona sem internet.
 // Ao publicar uma versão nova, troque VERSION para o iPhone baixar os arquivos atualizados.
-const VERSION = 'lastro-1.0.0';
+const VERSION = 'lastro-1.1.0';
 const FILES = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
   'js/app.js', 'js/vault.js', 'js/categorize.js', 'js/parsers.js', 'js/analysis.js', 'js/exports.js', 'js/sample.js',
