@@ -24,6 +24,8 @@ Veja a lista completa no [README](README.md). Em resumo:
 - **Markdown como formato oficial:** cada roteiro é um `.md` com as imagens em `anexos/`. Sincroniza com o Google Drive e abre no Obsidian.
 - **Exportação:** PDF com as abas escolhidas, `.zip` para o Obsidian, `.md` e `.txt`. Importa `.md`, `.zip` e `.json`.
 - **8 estruturas de roteiro**, três papéis, som de máquina, modo foco e funcionamento offline.
+- **Planejamento de publicação:** calendário (com arrastar), ordem de publicação, campanhas com objetivo, período, metas e resultados, aba Publicações em cada roteiro e exportação para o calendário do celular (.ics).
+- **Privacidade:** nada sai do aparelho sem você pedir. As fontes vêm junto com o app e a pré-visualização de links fica desligada.
 
 ## Abas sugeridas para cada roteiro
 
@@ -53,7 +55,6 @@ Pelo botão **+ aba** dá para acrescentar:
 
 - **Painel de menções:** no rodapé de cada roteiro, a lista dos outros roteiros que apontam para ele com `[[ ]]`, como no Obsidian.
 - **Mapa de conexões:** um grafo dos roteiros, séries e tags.
-- **Calendário de publicação:** data prevista de cada vídeo, com visualização em calendário no arquivo.
 - **Séries:** agrupar episódios com capa e numeração automática.
 - **Modelos próprios:** salvar qualquer roteiro (com as abas) como estrutura nova.
 - **Caderno de ideias rápidas:** um botão para anotar uma ideia na rua, que depois vira roteiro.
@@ -64,6 +65,13 @@ Pelo botão **+ aba** dá para acrescentar:
 - **Moodboard livre:** arrastar e posicionar os itens no mural à mão, como um quadro de cortiça de verdade.
 - **Comparar versões:** ver o que mudou entre o rascunho 1 e o 2, como uma folha corrigida à caneta.
 - **Exportar para Fountain** (formato padrão de roteiro de cinema) e para legendas (.srt) a partir do texto corrido.
+
+### Redes sociais
+
+- **Melhores horários por plataforma:** sugerir a hora a partir dos posts que mais deram resultado.
+- **Cadência:** definir uma frequência por plataforma (ex.: YouTube toda terça, Reels 3x por semana) e o app sugerir as datas sozinho.
+- **Relatório do mês:** comparar plataformas, formatos e campanhas pelos números registrados.
+- **Banco de legendas e hashtags** reutilizáveis por plataforma.
 
 ### Nuvem e aparelhos
 

@@ -13,9 +13,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="fonts/fonts.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -33,10 +31,18 @@
       <nav class="nav" id="nav"></nav>
       <div class="list" id="list"></div>
       <footer class="sidebar-foot">
-        <button class="sync" id="btn-sync" type="button" title="Sincronizar com o Google Drive">
-          <span class="sync-dot" id="sync-dot"></span><span id="sync-label">Só neste aparelho</span>
-        </button>
-        <button class="btn btn-ghost" id="btn-settings" type="button">Ajustes</button>
+        <div class="sync-status"><span class="sync-dot" id="sync-dot"></span><span id="sync-label">Só neste aparelho</span></div>
+        <div class="foot-row">
+          <button class="btn btn-drive" id="btn-sync" type="button" title="Sincronizar com o Google Drive">
+            <svg class="drive-mark" viewBox="0 0 24 21" aria-hidden="true">
+              <path class="dm-left" d="M8 0 0 14 4 21 12 7Z"/>
+              <path class="dm-right" d="M8 0h8l8 14h-8Z"/>
+              <path class="dm-bottom" d="M8 14h16l-4 7H4Z"/>
+            </svg>
+            <span id="sync-btn-label">Sincronizar</span>
+          </button>
+          <button class="btn btn-ghost" id="btn-settings" type="button">Ajustes</button>
+        </div>
       </footer>
     </aside>
     <div class="scrim" id="scrim"></div>
@@ -79,6 +85,12 @@
         <legend>Máquina</legend>
         <label class="check"><input type="checkbox" id="opt-sound"> Som de teclas de máquina de escrever</label>
         <label class="check"><input type="checkbox" id="opt-typewriter"> Rolagem de máquina (a linha atual fica no meio da tela)</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Privacidade</legend>
+        <p class="muted small">Seus roteiros ficam neste aparelho e, se você ligar, no seu Google Drive. Nada é enviado para o GitHub nem para nenhum servidor do app (o app não tem servidor).</p>
+        <label class="check"><input type="checkbox" id="opt-linkpreview"> Pré-visualizar links: buscar título e miniatura de links do YouTube, Spotify etc. (envia só o endereço do link para o noembed.com e o YouTube)</label>
       </fieldset>
 
       <fieldset>

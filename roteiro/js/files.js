@@ -3,7 +3,7 @@
 // Google Drive. No .md aparecem como ![legenda](anexos/arquivo.jpg).
 
 import * as db from './db.js';
-import { h, shortId } from './core.js';
+import { h, shortId, state } from './core.js';
 
 const urls = new Map();
 const MAX_SIDE = 2000;
@@ -71,8 +71,10 @@ export function youtubeId(url) {
   return m ? m[1] : '';
 }
 
+// Miniatura de um link. Só busca a do YouTube se o usuário ligou a pré-visualização
+// de links nos Ajustes (por padrão nada sai do aparelho).
 export function thumbFor(url) {
-  const yt = youtubeId(url);
+  const yt = state.settings.linkPreview && youtubeId(url);
   if (yt) return `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`;
   if (/\.(jpe?g|png|gif|webp|avif)(\?.*)?$/i.test(url || '')) return url;
   return '';
@@ -91,6 +93,7 @@ export function guessRefType(url) {
 
 // Busca título e autor de um link público (YouTube, Vimeo, Spotify, SoundCloud...).
 export async function linkInfo(url) {
+  if (!state.settings.linkPreview) return null;
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 6000);

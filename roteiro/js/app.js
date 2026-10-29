@@ -1,5 +1,5 @@
-import { state, app, $, h, fill, field, toast, current, live, touch, popMenu, ask, pickFiles, fmtDate, move, uid, autosize } from './core.js';
-import { TEMPLATES, STATUSES, TAB_TYPES, TAB_PRESETS, buildScript, makeTab, migrate } from './model.js';
+import { state, app, $, h, fill, field, toast, current, live, scripts, touch, popMenu, ask, pickFiles, fmtDate, move, uid, autosize, isoDate } from './core.js';
+import { TEMPLATES, STATUSES, TAB_TYPES, TAB_PRESETS, PLATFORMS, OBJECTIVES, CAMPAIGN_STATUSES, buildScript, makeTab, migrate } from './model.js';
 import { scriptToMd, mdToScript, attachmentsIn } from './markdown.js';
 import { img, saveImage, putDownloaded } from './files.js';
 import { pageEditor } from './editor.js';
@@ -8,6 +8,8 @@ import { moodboardView } from './views/moodboard.js';
 import { referenciasView } from './views/referencias.js';
 import { tabelaView } from './views/tabela.js';
 import { libraryView } from './views/library.js';
+import { publicacoesView } from './views/publicacoes.js';
+import { plannerView, campaignPanel, newCampaign, allPosts } from './views/planner.js';
 import { exportMd, exportTxt, exportZip, importFiles, printScript, fileName } from './export.js';
 import * as db from './db.js';
 import * as drive from './drive.js';
@@ -106,7 +108,7 @@ function filtered() {
   const q = state.query.trim().toLowerCase();
   const f = state.filter;
   return live()
-    .filter((s) => (f.type === 'trash' ? s.deleted : !s.deleted))
+    .filter((s) => (f.type === 'trash' ? s.deleted : !s.deleted && s.kind !== 'campanha'))
     .filter((s) => {
       if (f.type === 'pinned') return s.pinned;
       if (f.type === 'folder') return inFolder(s, f.value);
@@ -147,7 +149,7 @@ function setFilter(filter) {
 }
 
 function renderNav() {
-  const active = live().filter((s) => !s.deleted);
+  const active = scripts();
   const folders = folderTree([...new Set(active.map((s) => s.folder).filter(Boolean))]);
   const tags = [...new Set(active.flatMap((s) => s.tags))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const f = state.filter;
@@ -159,7 +161,20 @@ function renderNav() {
     onClick: () => setFilter(filter),
   }, h('span', null, label), count != null ? h('span', { class: 'count' }, count) : null);
 
+  const plan = (label, mode, count) => h('button', {
+    type: 'button',
+    class: 'nav-item' + (state.view === 'planner' && state.planner.mode === mode ? ' active' : ''),
+    onClick: () => app.showPlanner(mode),
+  }, h('span', null, label), count != null ? h('span', { class: 'count' }, count) : null);
+  const today = isoDate();
+  const upcoming = allPosts().filter((x) => x.p.date >= today && x.p.status !== 'Publicado').length;
+
   fill($('#nav'),
+    h('div', { class: 'nav-label' }, 'Planejamento'),
+    plan('◷ Calendário', 'calendario'),
+    plan('≡ Ordem de publicação', 'fila', upcoming),
+    plan('◎ Campanhas', 'campanhas', live().filter((s) => !s.deleted && s.kind === 'campanha').length),
+    h('div', { class: 'nav-label' }, 'Roteiros'),
     item('Todos os roteiros', { type: 'all' }, active.length),
     item('★ Fixados', { type: 'pinned' }, active.filter((s) => s.pinned).length),
     h('div', { class: 'nav-label' }, 'Status'),
@@ -217,6 +232,18 @@ const setDrawer = (open) => $('#app').classList.toggle('drawer-open', open);
 app.renderTop = () => {
   const s = current();
   const crumbHome = h('button', { type: 'button', class: 'crumb-link', onClick: () => app.showLibrary() }, 'Arquivo');
+  if (state.view === 'planner') {
+    fill($('#crumb'), h('span', null, 'Planejamento'));
+    fill($('#top-actions'));
+    return;
+  }
+  if (s?.kind === 'campanha' && state.view === 'script') {
+    fill($('#crumb'), h('button', { type: 'button', class: 'crumb-link', onClick: () => app.showPlanner('campanhas') }, 'Campanhas'), h('span', null, ' / ' + (s.title || 'Sem título')));
+    fill($('#top-actions'),
+      h('button', { type: 'button', class: 'btn btn-ghost', onClick: openExport }, 'Exportar'),
+      h('button', { type: 'button', class: 'btn btn-ghost danger', title: 'Mover para a lixeira', 'aria-label': 'Mover para a lixeira', onClick: () => trash(s) }, '✕'));
+    return;
+  }
   if (state.view !== 'script' || !s) {
     fill($('#crumb'), crumbHome, h('span', null, ' / ' + filterTitle()));
     fill($('#top-actions'), h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => $('#dlg-new').showModal() }, '+ Novo'));
@@ -373,6 +400,7 @@ function tabContent(s, t) {
     case 'referencias': return referenciasView(s, t);
     case 'tabela': return tabelaView(s, t);
     case 'texto': return textoView(s, t);
+    case 'publicacoes': return publicacoesView(s, t);
     default: return (currentPage = pageEditor(s, t));
   }
 }
@@ -384,8 +412,12 @@ app.renderEditor = () => {
   const s = current();
   if (state.view !== 'script' || !s) return;
   const t = activeTab(s);
-  const title = field('textarea', s.title, (v) => { s.title = v.replace(/\n/g, ' '); touch(s); app.renderTop(); }, { class: 'doc-title', placeholder: 'Sem título', 'aria-label': 'Título do roteiro' });
+  const isCamp = s.kind === 'campanha';
+  const oldTitle = s.title;
+  const title = field('textarea', s.title, (v) => { s.title = v.replace(/\n/g, ' '); touch(s); app.renderTop(); }, { class: 'doc-title', placeholder: isCamp ? 'Nome da campanha' : 'Sem título', 'aria-label': 'Título' });
   title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); title.blur(); } });
+  // Renomear a campanha atualiza as publicações ligadas a ela.
+  if (isCamp) title.addEventListener('change', () => renameCampaign(oldTitle, s.title));
   fill($('#editor'),
     s.deleted ? h('div', { class: 'banner' },
       'Este roteiro está na lixeira.',
@@ -397,15 +429,60 @@ app.renderEditor = () => {
           h('button', { type: 'button', class: 'btn btn-mini', onClick: () => pickCover(s) }, 'Trocar capa'),
           h('button', { type: 'button', class: 'btn btn-mini', onClick: () => { s.cover = ''; touch(s); app.renderEditor(); } }, 'Remover'))) : null,
       h('div', { class: 'doc-head' },
-        h('div', { class: 'doc-kicker' }, 'ROTEIRO',
+        h('div', { class: 'doc-kicker' }, isCamp ? 'CAMPANHA' : 'ROTEIRO',
           s.cover ? null : h('button', { type: 'button', class: 'add-cover', onClick: () => pickCover(s) }, '+ capa')),
         title,
-        renderProps(s)),
+        isCamp ? campaignProps(s) : renderProps(s)),
+      isCamp ? campaignPanel(s) : null,
       renderTabs(s),
       h('div', { class: 'tab-body', 'data-type': t.type }, tabContent(s, t))));
 };
 
+function renameCampaign(oldTitle, newTitle) {
+  if (!oldTitle || oldTitle === newTitle) return;
+  for (const { p, s } of allPosts()) {
+    if (p.campaign === oldTitle) { p.campaign = newTitle; touch(s); }
+  }
+}
+
+function campaignProps(s) {
+  const c = s.campaign;
+  const sel = (options, value, onChange) => {
+    const el = h('select', { class: 'prop-val', onChange: () => onChange(el.value) }, options.map((o) => h('option', { value: o }, o)));
+    el.value = value;
+    return el;
+  };
+  const save = () => touch(s, { list: false });
+  return h('div', { class: 'props' },
+    h('label', { class: 'prop' }, h('span', { class: 'prop-key' }, 'Objetivo'), sel(OBJECTIVES.includes(c.objetivo) ? OBJECTIVES : [c.objetivo, ...OBJECTIVES], c.objetivo, (v) => { c.objetivo = v; save(); })),
+    h('label', { class: 'prop' }, h('span', { class: 'prop-key' }, 'Status'), sel(CAMPAIGN_STATUSES, s.status, (v) => { s.status = v; save(); })),
+    h('label', { class: 'prop' }, h('span', { class: 'prop-key' }, 'Início'), field('input', c.inicio, (v) => { c.inicio = v; save(); }, { type: 'date', class: 'prop-val' })),
+    h('label', { class: 'prop' }, h('span', { class: 'prop-key' }, 'Fim'), field('input', c.fim, (v) => { c.fim = v; save(); }, { type: 'date', class: 'prop-val' })),
+    h('div', { class: 'prop prop-wide' }, h('span', { class: 'prop-key' }, 'Plataformas'),
+      h('div', { class: 'pf-toggles' }, PLATFORMS.filter((p) => p.id !== 'Outro').map((p) => {
+        const on = c.plataformas.includes(p.id);
+        return h('button', {
+          type: 'button', class: 'pf-toggle' + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false', style: { '--pf': p.color },
+          onClick: () => { c.plataformas = on ? c.plataformas.filter((x) => x !== p.id) : [...c.plataformas, p.id]; save(); app.renderEditor(); },
+        }, p.id);
+      }))),
+    h('label', { class: 'prop' }, h('span', { class: 'prop-key' }, 'Cor'),
+      (() => { const inp = h('input', { type: 'color', value: c.cor || '#8a2e1d', class: 'prop-color' }); inp.addEventListener('input', () => { c.cor = inp.value; save(); }); return inp; })()));
+}
+
 // ---------- navegação ----------
+
+app.showPlanner = (mode, date) => {
+  currentPage?._destroy?.();
+  currentPage = null;
+  if (mode) state.planner.mode = mode;
+  if (date) { state.planner.month = date.slice(0, 7); state.planner.day = date; }
+  state.view = 'planner';
+  app.renderSidebar();
+  app.renderTop();
+  fill($('#editor'), plannerView());
+  setDrawer(false);
+};
 
 app.showLibrary = () => {
   currentPage?._destroy?.();
@@ -540,6 +617,14 @@ function setSyncLabel(text, kind) {
   $('#sync-dot').className = 'sync-dot ' + (kind || '');
   const st = $('#drive-status');
   if (st) st.textContent = text;
+  // O botão do Drive mostra a próxima ação: ligar, reconectar ou sincronizar.
+  const set = state.settings;
+  const label = !set.clientId ? 'Ligar o Drive'
+    : kind === 'busy' ? 'Sincronizando…'
+      : !drive.isConnected() ? 'Conectar Drive'
+        : 'Sincronizar';
+  $('#sync-btn-label').textContent = label;
+  $('#btn-sync').className = 'btn btn-drive ' + (kind === 'busy' ? 'is-busy' : kind === 'err' ? 'is-err' : kind === 'ok' ? 'is-ok' : drive.isConnected() ? '' : 'is-off');
 }
 
 function refreshSyncLabel() {
@@ -639,6 +724,7 @@ function openSettings() {
   }));
   $('#opt-sound').checked = st.sound;
   $('#opt-typewriter').checked = st.typewriter;
+  $('#opt-linkpreview').checked = st.linkPreview;
   $('#opt-client').value = st.clientId;
   refreshSyncLabel();
   if (!$('#dlg-settings').open) $('#dlg-settings').showModal();
@@ -674,9 +760,11 @@ function bind() {
 
   $('#opt-sound').addEventListener('change', async (e) => { state.settings.sound = e.target.checked; await saveSettings(); app.renderTop(); });
   $('#opt-typewriter').addEventListener('change', async (e) => { state.settings.typewriter = e.target.checked; await saveSettings(); });
+  $('#opt-linkpreview').addEventListener('change', async (e) => { state.settings.linkPreview = e.target.checked; await saveSettings(); });
   $('#opt-client').addEventListener('change', async (e) => {
     state.settings.clientId = e.target.value.trim();
     await saveSettings();
+    refreshSyncLabel();
     if (state.settings.clientId) drive.loadGoogle().catch(() => {});
   });
   $('#btn-connect').addEventListener('click', () => { state.settings.clientId = $('#opt-client').value.trim(); connectDrive(); });
@@ -741,6 +829,8 @@ async function init() {
     toast('Este navegador não deixou salvar localmente. Exporte seus roteiros com frequência.');
   }
   applyTheme();
+  // Pede ao navegador para não apagar os dados do app quando faltar espaço.
+  navigator.storage?.persist?.().catch(() => {});
   const last = state.scripts.get(lastOpen);
   if (last && !last.deleted && !last.purged) app.openScript(last.id);
   else app.showLibrary();

@@ -49,6 +49,18 @@ O mesmo app roda no **Android, iPhone, iPad, Windows e Mac**. Funciona sem inter
 - **Imagens:** dá para colar ou arrastar imagens direto na página.
 - **Organização dos blocos:** Tab e Shift+Tab mudam o recuo das listas, e o menu ⋮⋮ de cada bloco transforma, move, duplica ou apaga.
 
+### Planejamento de publicação (YouTube, Instagram, TikTok…)
+- **Calendário do mês:** cada publicação aparece como um carimbo da plataforma (YT, IG, TT…). Você arrasta entre os dias para remarcar, e as campanhas aparecem como faixas coloridas no período delas. No celular, basta tocar no dia para ver os detalhes.
+- **Ordem de publicação:** a fila das próximas publicações, numerada e agrupada por semana, com as atrasadas destacadas.
+  - As setas ↑ ↓ trocam a ordem e, junto, as datas das duas publicações.
+  - Abaixo ficam a fila sem data (com "Distribuir nas próximas datas livres"), os roteiros que ainda não têm publicação planejada e o que foi publicado nos últimos 60 dias, com os números.
+- **Campanhas:** cada campanha tem objetivo (alcance, engajamento, seguidores, vendas, lançamento…), início e fim, plataformas e uma cor.
+  - Também tem uma aba de **Estratégia** (mensagem, público, pilares, chamada para ação) e uma tabela de **Metas** (meta × resultado).
+  - O painel da campanha mostra as publicações ligadas, o progresso e a soma de visualizações, curtidas, comentários, compartilhamentos e salvos.
+- **Aba Publicações em cada roteiro:** onde e quando cada versão vai ao ar (vídeo longo, Short, Reels, TikTok…), com status de Ideia até Publicado, campanha, link e resultados.
+  - O botão **"+ Cortes"** cria de uma vez um Short, um Reels e um TikTok nos dias seguintes.
+- **Exportar para o calendário (.ics):** as publicações viram eventos com alarme no app Calendário do iPhone, do Android ou do computador.
+
 ### A vibe de máquina de escrever
 - Papel com textura e manchas, mesa de madeira escura e fonte de datilografia.
 - Títulos das seções em vermelho, como a fita da máquina, e status em carimbo.
@@ -66,12 +78,21 @@ YouTube em 3 atos (o seu modelo do Google Docs), Vlog, Tutorial, Short/Reels/Tik
 - **Tudo de uma vez:** em Ajustes, o botão baixa todos os roteiros num `.zip` que funciona como um cofre do Obsidian.
 - **Importar:** aceita `.md` (inclusive notas comuns do Obsidian), `.zip` e `.json`.
 
+## Privacidade: onde ficam os seus dados
+
+- **No aparelho:** tudo o que você escreve fica guardado dentro do navegador, no celular, no tablet ou no computador. Funciona sem internet.
+- **No seu Google Drive (opcional):** se você ligar, os roteiros vão direto do aparelho para a sua conta, como arquivos `.md`. Não passam por nenhum servidor no meio, e o app só enxerga os arquivos que ele mesmo criou.
+- **Nunca no GitHub:** o GitHub guarda e entrega só o código do app, igual para todo mundo. O GitHub Pages só envia arquivos, não recebe nada. O app não tem servidor e não tem nenhuma forma de gravar no GitHub.
+- **Nada sai do aparelho sem você pedir:** as fontes vêm junto com o app. A busca automática de título e miniatura de links (YouTube, Spotify…) fica **desligada**; para ligar, use Ajustes → Privacidade, e mesmo assim só o endereço do link é enviado.
+- **Recomendações:** ative a verificação em duas etapas na sua conta Google. No iPhone, use o app instalado na Tela de Início, pois o Safari pode apagar dados de sites que você não abre há semanas. De vez em quando, baixe a cópia em Ajustes → "Baixar todos os roteiros (.zip)".
+
 ## Como os arquivos ficam salvos
 
 ```text
 Máquina de Roteiro/              (pasta no Google Drive)
 ├── Como consertei uma máquina.md
 ├── Um dia na feira.md
+├── Lançamento da série.md       (campanha)
 └── anexos/
     ├── 3f9a1c2b7d10.jpg
     └── 8e21aa04c5f3.png
@@ -154,6 +175,7 @@ O app usa a permissão `drive.file`, que só dá acesso aos arquivos que ele mes
 ```text
 index.html               layout e diálogos
 css/style.css            papel, temas, componentes, celular e impressão
+fonts/                   fontes de máquina de escrever (guardadas no app)
 js/app.js                navegação, página do roteiro, abas, ajustes, sincronização
 js/core.js               estado e utilitários de interface
 js/model.js              estruturas de roteiro, tipos e modelos de aba
@@ -164,6 +186,8 @@ js/views/moodboard.js    mural (fotos, cores, notas, links, paleta)
 js/views/referencias.js  referências com link
 js/views/tabela.js       banco de dados com tipos de coluna e quadro
 js/views/library.js      arquivo: galeria, lista, tabela e quadro
+js/views/planner.js      calendário, ordem de publicação e campanhas
+js/views/publicacoes.js  aba Publicações de cada roteiro
 js/files.js              imagens (anexos), miniaturas e paleta de cores
 js/export.js             .md, .zip, .txt, PDF e importação
 js/zip.js                leitura e gravação de .zip sem bibliotecas
