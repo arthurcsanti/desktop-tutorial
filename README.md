@@ -1,5 +1,7 @@
 # Lastro — finanças pessoais
 
+> Este repositório também tem a **Máquina de Roteiro**, app para escrever roteiros de vídeo, na pasta [`roteiro/`](roteiro/README.md): https://arthurcsanti.github.io/desktop-tutorial/roteiro/
+
 App de finanças para iPhone que funciona **offline** e guarda tudo **criptografado no próprio aparelho**.
 Visual inspirado em Notion e Obsidian, com modo claro e escuro.
 
