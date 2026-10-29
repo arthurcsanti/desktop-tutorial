@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Fundo full-bleed: o iOS aplica o próprio arredondamento do ícone -->
+  <rect width="1024" height="1024" fill="#1C1C1A"/>
+  <!-- Página do caderno -->
+  <rect x="262" y="214" width="500" height="616" rx="64" fill="#F1ECE1"/>
+  <!-- Fita marcadora -->
+  <path d="M598 214 h92 v236 l-46 -40 l-46 40 z" fill="#5E8C6A"/>
+  <!-- Linhas de lançamento -->
+  <rect x="342" y="500" width="250" height="34" rx="17" fill="#1C1C1A"/>
+  <rect x="342" y="590" width="340" height="34" rx="17" fill="#1C1C1A" opacity=".55"/>
+  <rect x="342" y="680" width="190" height="34" rx="17" fill="#1C1C1A" opacity=".3"/>
+</svg>

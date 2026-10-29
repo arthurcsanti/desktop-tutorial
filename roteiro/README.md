@@ -119,11 +119,11 @@ python3 -m http.server 8000
 
 ## Como publicar (para usar em qualquer aparelho)
 
-O app é um site estático, então dá para hospedar de graça no GitHub Pages:
+O app fica na pasta `roteiro/` deste repositório e é publicado pelo GitHub Pages junto com o Lastro, a cada push no `main`:
 
-1. Junte este código ao branch `main`.
-2. No GitHub, abra **Settings → Pages** e, em *Source*, escolha **GitHub Actions**.
-3. O workflow `.github/workflows/pages.yml` publica o app sozinho a cada push no `main`. O endereço fica parecido com `https://arthurcsanti.github.io/desktop-tutorial/`.
+**https://arthurcsanti.github.io/desktop-tutorial/roteiro/**
+
+Os dois apps ficam no mesmo endereço, mas cada um guarda seus dados separadamente no aparelho.
 
 ## Como instalar como app
 
@@ -170,7 +170,7 @@ js/zip.js                leitura e gravação de .zip sem bibliotecas
 js/db.js                 armazenamento local (IndexedDB)
 js/drive.js              Google Drive
 sw.js                    funcionamento offline
-docs/IDEIAS.md           ideias e próximos passos
+IDEIAS.md                ideias e próximos passos
 ```
 
 Não há etapa de build nem dependências: é HTML, CSS e JavaScript puros.

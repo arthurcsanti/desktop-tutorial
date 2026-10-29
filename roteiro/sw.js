@@ -1,5 +1,5 @@
 // Guarda o app no aparelho para abrir e escrever mesmo sem internet.
-const CACHE = 'maquina-de-roteiro-v2';
+const CACHE = 'maquina-de-roteiro-v3';
 const SHELL = [
   './', './index.html', './css/style.css', './manifest.webmanifest',
   './js/app.js', './js/core.js', './js/db.js', './js/drive.js', './js/editor.js', './js/export.js',
@@ -15,7 +15,8 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      // Só apaga caches deste app: o Lastro, no mesmo endereço, tem os dele.
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('maquina-de-roteiro-') && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });

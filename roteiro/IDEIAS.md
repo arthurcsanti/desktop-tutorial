@@ -12,7 +12,7 @@ Muitos apps hoje têm a mesma cara: gradiente roxo, cantos arredondados, ícone 
 
 ## Já está no app (versão 2)
 
-Veja a lista completa no [README](../README.md). Em resumo:
+Veja a lista completa no [README](README.md). Em resumo:
 
 - **Arquivo como no Notion:** galeria, lista, tabela e quadro por status; pastas e subpastas, tags, fixados, lixeira e busca.
 - **Roteiro como página:** capa, propriedades e abas.
