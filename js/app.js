@@ -5,54 +5,14 @@ import { readStatement, readInvestments } from './parsers.js';
 import { summary, history, months, insights, recurring, subStatus, subsTotal, avgSpend, monthLabel, monthName, monthShort, mkOf, currentMk, MONTHS } from './analysis.js';
 import * as exporter from './exports.js';
 import { sampleData } from './sample.js';
+import { createPlan, PLAN_ROUTES } from './planviews.js';
+import * as P from './plan.js';
+import * as R from './reminders.js';
+import { icon, money, moneyShort, pct, esc, dateOf, uid, $, parseMoneyInput, WEEKDAYS, KINDS, KIND_COLOR, guessKind, avatar, tag, typeTag, heroValue, callout } from './ui.js';
 
-/* ---------- Ícones (traço fino, estilo SF Symbols) ---------- */
-const ICONS = {
-  home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-6h4v6"/>',
-  list: '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r=".6"/><circle cx="3.5" cy="12" r=".6"/><circle cx="3.5" cy="18" r=".6"/>',
-  repeat: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
-  trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
-  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
-  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
-  lock: '<rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
-  upload: '<path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>',
-  chevron: '<path d="m9 6 6 6-6 6"/>',
-  down: '<path d="m6 9 6 6 6-6"/>',
-  up: '<path d="M7 17 17 7"/><path d="M8 7h9v9"/>',
-  downright: '<path d="M7 7l10 10"/><path d="M17 8v9H8"/>',
-  alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
-  info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
-  piggy: '<path d="M19 9.5c1 .5 1.8 1.5 2 2.5h-1.5"/><path d="M5 11a7 6 0 0 1 12.5-2.5L20 8l-.5 3.5A6 6 0 0 1 17 16v3h-3v-2h-4v2H7v-3.2A6 6 0 0 1 5 11z"/><path d="M5 11H3"/><circle cx="15" cy="11" r=".6"/>',
-  calendar: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
-  store: '<path d="M3 9 4.5 4h15L21 9"/><path d="M3 9h18v1.5a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M5 13v8h14v-8"/>',
-  shield: '<path d="M12 3 4.5 6v6c0 4.5 3.2 7.7 7.5 9 4.3-1.3 7.5-4.5 7.5-9V6z"/><path d="m9 12 2 2 4-4"/>',
-  key: '<circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M17 6l3 3M14.5 8.5l2 2"/>',
-  trash: '<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/>',
-  x: '<path d="M18 6 6 18M6 6l12 12"/>',
-  check: '<path d="m5 12 5 5 9-10"/>',
-  question: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.4M12 17h.01"/>',
-  faceid: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9v1.5M15 9v1.5M12 9v4h-1"/><path d="M9 15.5c1.6 1.3 4.4 1.3 6 0"/>',
-  copy: '<rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
-  share: '<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
-};
-const icon = (name) => `<span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg></span>`;
-
-/* ---------- formatação ---------- */
-const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-const money = (v) => BRL.format(v);
-const moneyShort = (v) => (Math.abs(v) >= 1000 ? `R$ ${(v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil` : money(v));
-const pct = (v) => `${Math.round(v * 100)}%`;
-const WEEKDAYS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const dateOf = (iso) => new Date(`${iso}T12:00:00`);
-const uid = () => Math.random().toString(36).slice(2, 10);
-const $ = (s, r = document) => r.querySelector(s);
-const parseMoneyInput = (v) => parseFloat(String(v).replace(/\./g, '').replace(',', '.')) || 0;
 
 /* ---------- estado ---------- */
-const EMPTY = () => ({ v: 1, tx: [], rules: [], subs: [], dismissed: [], inv: [], imports: [], settings: { income: 0, goalPct: 0.2, lockAfter: 60 } });
+const EMPTY = () => ({ v: 1, tx: [], rules: [], subs: [], dismissed: [], inv: [], imports: [], budgets: {}, annual: [], goals: [], accounts: [], bills: [], nwHistory: {}, closed: {}, exported: {}, settings: { income: 0, goalPct: 0.2, lockAfter: 60, hoursMonth: 176 } });
 let data = null;
 let mk = currentMk();
 // grava logo após cada mudança, uma gravação por vez
@@ -71,20 +31,6 @@ function pickMonth() {
   mk = ms.includes(currentMk()) || !ms.length ? currentMk() : ms[ms.length - 1];
 }
 
-/* ---------- categorias de investimento: cor segue o tipo ---------- */
-const KINDS = ['Reserva de emergência', 'Renda fixa', 'Renda variável', 'Exterior', 'Cripto', 'Previdência', 'Fundos', 'Outros'];
-const KIND_COLOR = { 'Reserva de emergência': 'var(--c1)', 'Renda fixa': 'var(--c3)', 'Renda variável': 'var(--c2)', Exterior: 'var(--c7)', Cripto: 'var(--c4)', Previdência: 'var(--c5)', Fundos: 'var(--c6)', Outros: 'var(--c8)' };
-function guessKind(name) {
-  const s = name.toUpperCase();
-  if (/SELIC|RESERVA/.test(s)) return 'Reserva de emergência';
-  if (/TESOURO|CDB|LCI|LCA|RDB|CRI|CRA|DEB[EÊ]NTURE|POUPAN/.test(s)) return 'Renda fixa';
-  if (/IVVB|BDR|NASDAQ|S&P|EXTERIOR|AVENUE|NOMAD|STOCK|\bETF\b.*US/.test(s)) return 'Exterior';
-  if (/BITCOIN|BTC|ETH|CRIPTO|HASH11|QBTC/.test(s)) return 'Cripto';
-  if (/PREV|PGBL|VGBL/.test(s)) return 'Previdência';
-  if (/FUNDO|FIC|FIM|MULTIMERCADO/.test(s)) return 'Fundos';
-  if (/[A-Z]{4}\d{1,2}\b|FII|A[CÇ][OÕ]ES/.test(s)) return 'Renda variável';
-  return 'Outros';
-}
 
 /* ================================================================
    Portão: boas-vindas, criação de código, desbloqueio, recuperação
@@ -364,7 +310,7 @@ const ROUTES = [
   { id: 'gastos', label: 'Gastos', icon: 'list' },
   { id: 'assinaturas', label: 'Assinaturas', icon: 'repeat' },
   { id: 'investir', label: 'Investir', icon: 'trend' },
-  { id: 'relatorios', label: 'Relatórios', icon: 'file' },
+  { id: 'planejar', label: 'Planejar', icon: 'target' },
 ];
 
 function topbar() {
@@ -376,16 +322,7 @@ function topbar() {
     </div></div>`;
 }
 
-const avatar = (name, cat) => (CATS[cat]?.unknown
-  ? `<div class="avatar unknown">${icon('question')}</div>`
-  : `<div class="avatar" style="--cat:${CATS[cat]?.color || 'var(--c0)'}">${esc((name.replace(/^PIX · /, '').trim()[0] || '?').toUpperCase())}</div>`);
-const tag = (cat) => `<span class="tag${CATS[cat]?.unknown ? ' unknown' : ''}" style="--cat:${CATS[cat]?.color}">${CATS[cat]?.name || cat}</span>`;
-const typeTag = (t) => (t.type === 'out' ? tag(t.cat) : `<span class="tag type-${t.type}">${TYPES[t.type]}</span>`);
 
-function heroValue(v) {
-  const [int, cents] = money(v).split(',');
-  return `<div class="hero-value">${int}<span class="cents">,${cents}</span></div>`;
-}
 
 function emptyState(title, sub) {
   return `<div class="card empty">
@@ -436,20 +373,50 @@ function categoryBars(cats, total) {
   }).join('')}</div>`;
 }
 
-function callout(n) {
-  return `<div class="callout ${n.tone}">
-    <div class="callout-ico">${icon(n.icon)}</div>
-    <div><p>${esc(n.title)}</p>${n.sub ? `<p>${esc(n.sub)}</p>` : ''}
-    ${n.action ? `<div class="callout-actions"><button class="btn small primary" data-action="sub-accept" data-key="${esc(n.action.key)}">Adicionar</button><button class="btn small" data-action="sub-dismiss" data-key="${esc(n.action.key)}">Agora não</button></div>` : ''}
-    ${n.link ? `<div class="callout-actions"><a class="btn small" href="${n.link}">Revisar</a></div>` : ''}</div></div>`;
+
+/* ---------- planejamento ---------- */
+const plan = createPlan({
+  get data() { return data; },
+  get mk() { return mk; },
+  topbar: () => topbar(),
+  openSheet: (h) => openSheet(h),
+  closeSheet: () => closeSheet(),
+  toast: (m) => toast(m),
+  commit: (msg) => { save(); closeSheet(); render(); if (msg) toast(msg); },
+  exportMd: () => doExport('md'),
+});
+
+/** observações que vêm do planejamento: orçamento, parcelas, gastos anuais e horas de trabalho */
+function planInsights(s) {
+  const out = [];
+  const b = P.budgetStatus(data, mk);
+  const over = b.rows.filter((r) => r.over);
+  if (over.length) out.push({ tone: 'warn', icon: 'target', title: `${CATS[over[0].cat].name} passou do limite: ${money(over[0].spent)} de ${money(over[0].limit)}.`, sub: over.length > 1 ? `Mais ${over.length - 1} categoria${over.length > 2 ? 's' : ''} acima do orçamento.` : `${money(over[0].spent - over[0].limit)} acima do planejado.`, link: '#orcamento', linkLabel: 'Ver orçamento' });
+  else {
+    const soon = b.rows.find((r) => r.willOver || r.ratio >= 0.8);
+    if (soon) out.push({ tone: 'warn', icon: 'target', title: `${CATS[soon.cat].name} já usou ${pct(soon.ratio)} do limite.`, sub: b.isCurrent ? `No ritmo atual, fecha o mês em ${money(soon.projected)} (limite ${money(soon.limit)}).` : '', link: '#orcamento', linkLabel: 'Ver orçamento' });
+  }
+  const ann = P.annualPlan(data, mk).list.find((a) => a.monthsLeft <= 1);
+  if (ann) out.push({ tone: 'info', icon: 'calendar', title: `${ann.name} ${ann.monthsLeft === 0 ? 'é este mês' : 'é no mês que vem'}: ${money(ann.amount)}.`, sub: 'Gasto anual cadastrado.', link: '#anuais', linkLabel: 'Ver anuais' });
+  const inst = P.installments(data, mk);
+  if (s.income && inst.schedule[0].total / s.income > 0.15) out.push({ tone: 'info', icon: 'card', title: `${money(inst.schedule[0].total)} de parcelas já comprometidas em ${monthName(inst.schedule[0].mk).toLowerCase()}.`, sub: `${pct(inst.schedule[0].total / s.income)} da renda antes de o mês começar.`, link: '#parcelas', linkLabel: 'Ver parcelas' });
+  const rate = P.hourlyRate(data, mk);
+  const want = s.cats.find((c) => !CATS[c.id]?.unknown && !P.isEssential(data, c.id));
+  if (rate && want && want.value / rate >= 4) out.push({ tone: 'info', icon: 'clock', title: `${CATS[want.id].name} custou ${P.hoursText(want.value, rate)} este mês.`, sub: `Sua hora vale cerca de ${money(rate)}.` });
+  return out;
 }
 
 const views = {
   inicio() {
     if (!data.tx.length) return `${topbar()}<h1 class="page-title">Visão geral</h1><p class="page-sub">Nenhum lançamento ainda</p>${emptyState('Comece pelo extrato', 'Exporte o extrato ou a fatura no app do banco e importe aqui. Tudo é lido no próprio iPhone.')}`;
     const s = summary(data, mk);
-    const notes = insights(data, mk, money);
+    const planNotes = planInsights(s);
+    // evita repetir a mesma categoria que já apareceu no aviso de orçamento
+    const said = planNotes.filter((n) => n.icon === 'target').map((n) => n.title.split(' ')[0]);
+    const notes = [...planNotes, ...insights(data, mk, money).filter((n) => !said.some((w) => n.title.startsWith(w)))];
     const left = s.income - s.total - s.invested;
+    const inst = P.installments(data, mk);
+    const nw = P.netWorth(data);
     return `${topbar()}
       <h1 class="page-title">Visão geral</h1>
       <p class="page-sub">${s.tx.length} lançamentos em ${monthName(mk).toLowerCase()}</p>
@@ -464,7 +431,7 @@ const views = {
         </div>
         ${s.incomeFromTx || !s.income ? '' : '<p class="tiny">* renda informada nos Ajustes</p>'}
       </div>
-      ${notes.length ? `<div class="section"><div class="section-head"><h2 class="section-title">Observações</h2></div>${notes.slice(0, 4).map(callout).join('')}</div>` : ''}
+      ${notes.length ? `<div class="section"><div class="section-head"><h2 class="section-title">Observações</h2></div>${notes.slice(0, 5).map(callout).join('')}</div>` : ''}
       <div class="section"><div class="section-head"><h2 class="section-title">Últimos 6 meses</h2></div><div class="card">${monthsChart()}</div></div>
       ${s.cats.length ? `<div class="section"><div class="section-head"><h2 class="section-title">Por categoria</h2><a class="link" href="#gastos">Ver gastos</a></div><div class="card">${categoryBars(s.cats, s.total)}</div></div>` : ''}
       ${s.merchants.length ? `<div class="section"><div class="section-head"><h2 class="section-title">Onde você mais gastou</h2></div>
@@ -475,6 +442,10 @@ const views = {
       <div class="section grid-2">
         <a class="card stat" href="#assinaturas"><span>Assinaturas</span><strong>${money(subsTotal(data))}</strong><em>${data.subs.length} ativas · por mês</em></a>
         <a class="card stat" href="#gastos?f=outros"><span>Não identificados</span><strong>${s.unknown.length}</strong><em>${money(s.unknown.reduce((a, t) => a + t.amount, 0))} para revisar</em></a>
+      </div>
+      <div class="grid-2" style="margin-top:10px">
+        <a class="card stat" href="#parcelas"><span>Parcelas a pagar</span><strong>${money(inst.owed)}</strong><em>${inst.schedule[0].total ? `${money(inst.schedule[0].total)} em ${monthShort(inst.schedule[0].mk)}` : 'nada comprometido'}</em></a>
+        <a class="card stat" href="#patrimonio"><span>Patrimônio líquido</span><strong>${money(nw.net)}</strong><em>contas + investimentos − dívidas</em></a>
       </div>`;
   },
 
@@ -482,31 +453,34 @@ const views = {
     const filter = params.get('f') || 'todos';
     const q = (params.get('q') || '').toLowerCase();
     const s = summary(data, mk);
-    let tx = [...s.tx].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
-    if (filter === 'in' || filter === 'inv' || filter === 'skip') tx = tx.filter((t) => t.type === filter);
+    // "#etiqueta" busca em todos os meses
+    const allMonths = q.startsWith('#') || params.get('all') === '1';
+    let tx = [...(allMonths ? data.tx : s.tx)].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+    if (['in', 'inv', 'skip', 'refund'].includes(filter)) tx = tx.filter((t) => t.type === filter);
     else if (filter !== 'todos') tx = tx.filter((t) => t.type === 'out' && t.cat === filter);
-    if (q) tx = tx.filter((t) => `${t.merchant} ${t.desc}`.toLowerCase().includes(q));
+    if (q.startsWith('#')) tx = tx.filter((t) => (t.tags || []).some((tg) => tg.toLowerCase() === q.slice(1)));
+    else if (q) tx = tx.filter((t) => `${t.merchant} ${t.desc}`.toLowerCase().includes(q));
     const groups = new Map();
     tx.forEach((t) => { if (!groups.has(t.date)) groups.set(t.date, []); groups.get(t.date).push(t); });
-    const types = ['in', 'inv', 'skip'].filter((ty) => s.tx.some((t) => t.type === ty));
+    const types = ['in', 'refund', 'inv', 'skip'].filter((ty) => s.tx.some((t) => t.type === ty));
     const chips = [`<button class="chip${filter === 'todos' ? ' on' : ''}" data-filter="todos">Todos</button>`]
       .concat(s.cats.map((c) => `<button class="chip${filter === c.id ? ' on' : ''}" data-filter="${c.id}" style="--cat:${CATS[c.id].color}"><i></i>${CATS[c.id].name}</button>`))
-      .concat(types.map((ty) => `<button class="chip${filter === ty ? ' on' : ''}" data-filter="${ty}">${{ in: 'Entradas', inv: 'Investimentos', skip: 'Ignorados' }[ty]}</button>`)).join('');
-    const outSum = tx.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0);
+      .concat(types.map((ty) => `<button class="chip${filter === ty ? ' on' : ''}" data-filter="${ty}">${{ in: 'Entradas', refund: 'Reembolsos', inv: 'Investimentos', skip: 'Ignorados' }[ty]}</button>`)).join('');
+    const outSum = tx.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0) - tx.filter((t) => t.type === 'refund').reduce((a, t) => a + t.amount, 0);
     const body = [...groups.entries()].map(([date, list]) => {
       const d = dateOf(date);
       const daySum = list.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0);
-      return `<div class="day-head"><strong>${d.getDate()} de ${MONTHS[d.getMonth()]}</strong><span>${WEEKDAYS[d.getDay()]}${daySum ? ` · ${money(daySum)}` : ''}</span></div>
+      return `<div class="day-head"><strong>${d.getDate()} de ${MONTHS[d.getMonth()]}${allMonths ? ` de ${d.getFullYear()}` : ''}</strong><span>${WEEKDAYS[d.getDay()]}${daySum ? ` · ${money(daySum)}` : ''}</span></div>
         <div class="list">${list.map((t) => `
           <button class="row row-btn" data-action="tx" data-id="${t.id}">${avatar(t.merchant, t.type === 'out' ? t.cat : 'saude')}
-            <div class="row-main"><div class="row-title">${esc(t.merchant)}</div><div class="row-sub">${typeTag(t)}${t.type === 'out' && data.subs.some((x) => x.key === t.key) ? '<span class="pill">Assinatura</span>' : ''}</div></div>
-            <div class="row-amt ${t.type === 'in' ? 'in' : ''} ${t.type === 'skip' ? 'muted' : ''}">${t.type === 'in' ? '+' : '−'}${money(t.amount)}</div>
+            <div class="row-main"><div class="row-title">${esc(t.merchant)}</div><div class="row-sub">${typeTag(t)}${t.type === 'out' && data.subs.some((x) => x.key === t.key) ? '<span class="pill">Assinatura</span>' : ''}${P.parcelOf(t) ? `<span class="hash">${P.parcelOf(t).n}/${P.parcelOf(t).of}</span>` : ''}${(t.tags || []).map((tg) => `<span class="hash">#${esc(tg)}</span>`).join('')}</div></div>
+            <div class="row-amt ${t.type === 'in' || t.type === 'refund' ? 'in' : ''} ${t.type === 'skip' ? 'muted' : ''}">${t.type === 'in' || t.type === 'refund' ? '+' : '−'}${money(t.amount)}</div>
           </button>`).join('')}</div>`;
     }).join('');
     return `${topbar()}
       <h1 class="page-title">Gastos</h1>
-      <p class="page-sub">${money(outSum)} em ${tx.filter((t) => t.type === 'out').length} gastos</p>
-      <label class="search">${icon('search')}<input type="search" placeholder="Buscar loja ou descrição" value="${esc(q)}" data-action="search"></label>
+      <p class="page-sub">${money(outSum)} em ${tx.filter((t) => t.type === 'out').length} gastos${allMonths ? ' · todos os meses' : ''}</p>
+      <label class="search">${icon('search')}<input type="search" placeholder="Buscar loja, descrição ou #etiqueta" value="${esc(q)}" data-action="search"></label>
       <div class="chips">${chips}</div>
       ${body || (data.tx.length ? '<p class="empty-hint">Nada encontrado neste mês.</p>' : emptyState('Nenhum gasto ainda', 'Importe um extrato para ver seus lançamentos aqui.'))}`;
   },
@@ -517,6 +491,7 @@ const views = {
     const sugg = recurring(data);
     const today = mk === currentMk() ? new Date().getDate() : 0;
     const sorted = [...data.subs].sort((a, b) => a.day - b.day);
+    const rate = P.hourlyRate(data, mk);
     return `${topbar()}
       <h1 class="page-title">Assinaturas</h1>
       <p class="page-sub">Cobranças que se repetem todo mês</p>
@@ -534,10 +509,11 @@ const views = {
           const st = subStatus(data, x, mk);
           const status = st.paid ? `<small class="ok">${icon('check')} pago dia ${+st.date.slice(8)}</small>` : `<small>${today && x.day < today ? 'não encontrado' : `previsto dia ${x.day}`}</small>`;
           return `<button class="row row-btn" data-action="sub-edit" data-id="${x.id}">${avatar(x.name, x.cat)}
-            <div class="row-main"><div class="row-title">${esc(x.name)}</div><div class="row-sub">Todo dia ${x.day} · ${money(x.amount * 12)}/ano</div></div>
+            <div class="row-main"><div class="row-title">${esc(x.name)}</div><div class="row-sub">Todo dia ${x.day} · ${money(x.amount * 12)}/ano${rate ? ` · ${P.hoursText(x.amount * 12, rate)} por ano` : ''}</div></div>
             <div class="row-amt">${money(x.amount)}${status}</div></button>`;
         }).join('')}</div>` : '<p class="empty-hint">Nenhuma assinatura cadastrada. Toque em “+ Nova” ou importe extratos de alguns meses para o app encontrar.</p>'}
       </div>
+      ${data.subs.length ? `<div class="section"><button class="btn block" data-action="calendar-subs">${icon('calendar')} Colocar todas no Calendário do iPhone</button></div>` : ''}
       <p class="note">${icon('info')} Uma cobrança vira sugestão quando aparece com o mesmo valor por 3 meses seguidos (2, se for streaming ou app).</p>`;
   },
 
@@ -547,13 +523,16 @@ const views = {
     const applied = inv.filter((x) => x.invested).reduce((s, x) => s + x.invested, 0);
     const gain = inv.filter((x) => x.invested).reduce((s, x) => s + x.value - x.invested, 0);
     const s = summary(data, mk);
-    const avg = avgSpend(data, mk, 3) || s.total;
+    // reserva de emergência considera só os gastos essenciais
+    const avg = P.avgEssential(data, mk, 3) || avgSpend(data, mk, 3) || s.total;
+    const bench = P.portfolioVsBenchmarks(data);
+    const st = data.settings;
     const reserve = inv.filter((x) => x.kind === 'Reserva de emergência').reduce((a, x) => a + x.value, 0);
     const reserveMonths = avg ? reserve / avg : 0;
     const groups = KINDS.map((k) => ({ k, v: inv.filter((x) => (x.kind || 'Outros') === k).reduce((a, x) => a + x.value, 0) })).filter((g) => g.v > 0).sort((a, b) => b.v - a.v);
     const goal = s.income * (data.settings.goalPct ?? 0.2);
     const tips = [];
-    if (avg && reserveMonths < 6) tips.push(['shield', `Complete a reserva de emergência antes de aumentar o risco.`, `Hoje ela cobre ${reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} meses dos seus gastos; o recomendado é 6 (${money(avg * 6)}).`]);
+    if (avg && reserveMonths < 6) tips.push(['shield', `Complete a reserva de emergência antes de aumentar o risco.`, `Hoje ela cobre ${reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} meses dos seus gastos essenciais; o recomendado é 6 (${money(avg * 6)}).`]);
     if (goal && s.invested < goal) tips.push(['piggy', `Aporte de ${money(s.invested)} em ${monthName(mk).toLowerCase()}.`, `A meta de ${pct(data.settings.goalPct ?? 0.2)} da renda seria ${money(goal)}. Faltam ${money(goal - s.invested)}.`]);
     const risky = groups.filter((g) => ['Renda variável', 'Cripto'].includes(g.k)).reduce((a, g) => a + g.v, 0);
     if (total && risky / total > 0.5) tips.push(['alert', `${pct(risky / total)} da carteira está em renda variável e cripto.`, 'Uma fatia maior em renda fixa reduz o sobe e desce.']);
@@ -574,15 +553,29 @@ const views = {
       </div>
       ${avg ? `<div class="section"><div class="section-head"><h2 class="section-title">Reserva de emergência</h2></div>
         <div class="card">
-          <div class="spread"><span>${reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} de 6 meses de gastos</span><strong class="num">${money(reserve)}</strong></div>
+          <div class="spread"><span>${reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} de 6 meses de gastos essenciais</span><strong class="num">${money(reserve)}</strong></div>
           <div class="progress"><div style="width:${Math.min(1, reserveMonths / 6) * 100}%"></div></div>
-          <div class="tiny">${reserve >= avg * 6 ? 'Reserva completa.' : `Faltam ${money(avg * 6 - reserve)} · base: média de ${money(avg)}/mês`}${reserve ? '' : ' · marque um investimento como “Reserva de emergência”'}</div>
+          <div class="tiny">${reserve >= avg * 6 ? 'Reserva completa.' : `Faltam ${money(avg * 6 - reserve)} · base: ${money(avg)}/mês de essenciais`}${reserve ? '' : ' · marque um investimento como “Reserva de emergência”'}</div>
+        </div></div>` : ''}
+      ${inv.length ? `<div class="section"><div class="section-head"><h2 class="section-title">Comparado com CDI e inflação</h2><button class="link" data-action="rates-fetch">Atualizar</button></div>
+        <div class="card">
+          <div class="grid-2">
+            <label class="form"><span class="tiny" style="margin:0">CDI (% ao ano)</span><input class="field" inputmode="decimal" data-setting="cdi" value="${st.cdi ? String(st.cdi).replace('.', ',') : ''}" placeholder="ex.: 10,65"></label>
+            <label class="form"><span class="tiny" style="margin:0">IPCA 12 meses (%)</span><input class="field" inputmode="decimal" data-setting="ipca" value="${st.ipca ? String(st.ipca).replace('.', ',') : ''}" placeholder="ex.: 4,5"></label>
+          </div>
+          ${bench ? `<div class="kv" style="margin-top:14px">
+            <span>Seu rendimento</span><b class="${bench.gain >= 0 ? 'pos' : 'neg'}">${money(bench.gain)}</b>
+            ${bench.cdiGain ? `<span>Se estivesse 100% no CDI</span><b>${money(bench.cdiGain)}</b><span>Resultado</span><b>${pct(bench.pctCdi)} do CDI</b>` : ''}
+            ${bench.ipcaGain ? `<span>Só para empatar com a inflação</span><b>${money(bench.ipcaGain)}</b><span>Ganho real (acima da inflação)</span><b class="${bench.gain - bench.ipcaGain >= 0 ? 'pos' : 'neg'}">${money(bench.gain - bench.ipcaGain)}</b>` : ''}
+          </div>` : '<p class="tiny">Informe o valor aplicado e o mês da aplicação em cada investimento para comparar.</p>'}
+          <p class="tiny">${st.ratesDate ? `Taxas de ${st.ratesDate} (Banco Central). ` : ''}A comparação usa a taxa atual como aproximação para todo o período.</p>
         </div></div>` : ''}
       ${inv.length ? `<div class="section"><div class="section-head"><h2 class="section-title">Carteira</h2><button class="link" data-action="inv-new">+ Adicionar</button></div>
         <div class="list">${[...inv].sort((a, b) => b.value - a.value).map((x) => {
           const g = x.invested ? (x.value - x.invested) / x.invested : null;
+          const c = P.compareRates(x, st, mk);
           return `<button class="row row-btn" data-action="inv-edit" data-id="${x.id}"><div class="avatar" style="--cat:${KIND_COLOR[x.kind] || 'var(--c0)'}">${esc(x.name[0] || '?')}</div>
-            <div class="row-main"><div class="row-title">${esc(x.name)}</div><div class="row-sub">${esc(x.kind || 'Outros')}</div></div>
+            <div class="row-main"><div class="row-title">${esc(x.name)}</div><div class="row-sub">${esc(x.kind || 'Outros')}${c?.pctCdi != null ? ` · ${pct(c.pctCdi)} do CDI` : ''}${c?.real != null ? ` · real ${c.real >= 0 ? '+' : '−'}${(Math.abs(c.real) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%` : ''}</div></div>
             <div class="row-amt">${money(x.value)}${g != null ? `<small class="${g >= 0 ? 'ok' : 'bad'}">${g >= 0 ? '+' : '−'}${(Math.abs(g) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</small>` : ''}</div></button>`;
         }).join('')}</div></div>` : ''}
       ${tips.length ? `<div class="section"><div class="section-head"><h2 class="section-title">Sugestões</h2></div>
@@ -592,7 +585,7 @@ const views = {
 
   relatorios() {
     const s = summary(data, mk);
-    return `${topbar()}
+    return `<div class="topbar"><a class="link" href="#planejar">‹ Planejar</a><button class="month-pill" data-action="month">${monthLabel(mk)} ${icon('down')}</button></div>
       <h1 class="page-title">Relatórios</h1>
       <p class="page-sub">Resumo de ${monthName(mk).toLowerCase()} pronto para exportar</p>
       <article class="card doc">
@@ -649,6 +642,12 @@ const views = {
             <input class="inline-input wide" data-setting-text="ownName" value="${esc(st.ownName || '')}" placeholder="Nome Sobrenome" autocomplete="name"></label>
           <label class="row plain"><div class="row-main"><div class="row-title">Renda mensal</div><div class="row-sub">Usada quando o extrato não tem o salário</div></div>
             <input class="inline-input" inputmode="decimal" data-setting="income" value="${st.income ? st.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}" placeholder="0,00"></label>
+          <label class="row plain"><div class="row-main"><div class="row-title">Horas trabalhadas por mês</div><div class="row-sub">Para mostrar o custo dos gastos em horas de trabalho</div></div>
+            <input class="inline-input" inputmode="numeric" data-setting="hoursMonth" value="${st.hoursMonth || 176}"></label>
+          <label class="row plain"><div class="row-main"><div class="row-title">Dia do salário</div><div class="row-sub">Lembretes de metas caem nesse dia</div></div>
+            <input class="inline-input" inputmode="numeric" data-setting="payday" value="${st.payday || 5}"></label>
+          <label class="row plain"><div class="row-main"><div class="row-title">Dia do fechamento do mês</div><div class="row-sub">Lembrete para revisar o mês anterior</div></div>
+            <input class="inline-input" inputmode="numeric" data-setting="closingDay" value="${st.closingDay || 3}"></label>
           <div class="row plain"><div class="row-main"><div class="row-title">Meta de investimento</div><div class="row-sub">Parte da renda para aplicar todo mês</div></div>${seg('goalPct', st.goalPct, [[0.1, '10%'], [0.2, '20%'], [0.3, '30%']])}</div>
           <button class="row plain row-btn" data-action="rules"><div class="row-main"><div class="row-title">Regras de categoria</div><div class="row-sub">${data.rules.length} regra${data.rules.length === 1 ? '' : 's'} criada${data.rules.length === 1 ? '' : 's'} por você</div></div>${icon('chevron')}</button>
         </div></div>
@@ -661,7 +660,7 @@ const views = {
           <button class="row plain row-btn" data-action="sample"><div class="row-main"><div class="row-title">Carregar dados de exemplo</div></div>${icon('chevron')}</button>
           <button class="row plain row-btn" data-action="wipe"><div class="row-main"><div class="row-title danger">Apagar todos os dados</div></div></button>
         </div></div>
-      <p class="empty-hint">Lastro · versão 1.1</p>`;
+      <p class="empty-hint">Lastro · versão 1.2</p>`;
   },
 };
 
@@ -671,11 +670,13 @@ async function render() {
   if (!data) return;
   const seq = ++renderSeq;
   const [route, query] = (location.hash.slice(1) || 'inicio').split('?');
-  const id = views[route] ? route : 'inicio';
-  const html = await views[id](new URLSearchParams(query || ''));
+  const all = { ...plan.views, ...views };
+  const id = all[route] ? route : 'inicio';
+  const html = await all[id](new URLSearchParams(query || ''));
   if (seq !== renderSeq) return;
   $('#view').innerHTML = html;
-  const nav = ROUTES.map((r) => `<a href="#${r.id}" class="${r.id === id ? 'active' : ''}">${icon(r.icon)}<span>${r.label}</span></a>`).join('');
+  const tab = PLAN_ROUTES.includes(id) ? 'planejar' : id === 'investir' || id === 'assinaturas' || id === 'gastos' ? id : id === 'ajustes' ? '' : 'inicio';
+  const nav = ROUTES.map((r) => `<a href="#${r.id}" class="${r.id === tab ? 'active' : ''}">${icon(r.icon)}<span>${r.label}</span></a>`).join('');
   $('.tabbar').innerHTML = nav;
   $('.side-nav').innerHTML = nav + `<a href="#ajustes" class="${id === 'ajustes' ? 'active' : ''}">${icon('gear')}<span>Ajustes</span></a>`;
 }
@@ -827,6 +828,7 @@ function confirmInv() {
     else data.inv.push({ id: uid(), name: x.name, kind, value: x.value, invested: x.invested, updated: new Date().toISOString() });
   });
   data.imports.push({ id: uid(), name: file, kind: 'investimentos', count: items.length, at: new Date().toISOString() });
+  P.snapshotNetWorth(data);
   pending = null;
   save(); closeSheet();
   location.hash = 'investir'; render();
@@ -839,14 +841,23 @@ function txSheet(id) {
   if (!t) return;
   const d = dateOf(t.date);
   const same = data.tx.filter((x) => x.key === t.key).length;
+  const rate = P.hourlyRate(data, mkOf(t.date));
+  const parcel = P.parcelOf(t);
+  const allTags = [...new Set(data.tx.flatMap((x) => x.tags || []))].filter((tg) => !(t.tags || []).includes(tg)).slice(0, 8);
   openSheet(`<div class="tx-head">${avatar(t.merchant, t.type === 'out' ? t.cat : 'saude')}<div><h2>${esc(t.merchant)}</h2><span class="row-sub">${d.getDate()} de ${MONTHS[d.getMonth()]} · ${WEEKDAYS[d.getDay()]}</span></div></div>
-    <div class="hero-value ${t.type === 'in' ? 'pos' : ''}">${t.type === 'in' ? '+' : '−'}${money(t.amount)}</div>
-    <p class="raw">${esc(t.desc)}${t.bank ? ` · ${esc(t.bank)}` : ''}</p>
+    <div class="hero-value ${t.type === 'in' || t.type === 'refund' ? 'pos' : ''}">${t.type === 'in' || t.type === 'refund' ? '+' : '−'}${money(t.amount)}</div>
+    ${t.type === 'out' && rate ? `<p class="hint-hours">${icon('clock')} ${P.hoursText(t.amount, rate)}</p>` : ''}
+    <p class="raw">${esc(t.desc)}${t.bank ? ` · ${esc(t.bank)}` : ''}${parcel ? ` · parcela ${parcel.n} de ${parcel.of}` : ''}</p>
     <div class="section-head"><h2 class="section-title">Tipo</h2></div>
-    <div class="seg wide">${Object.entries(TYPES).map(([k, l]) => `<button class="${t.type === k ? 'on' : ''}" data-action="set-type" data-id="${t.id}" data-type="${k}">${l}</button>`).join('')}</div>
-    ${t.type === 'out' ? `<div class="section-head" style="margin-top:18px"><h2 class="section-title">Categoria</h2></div>
+    <div class="seg wide tight">${Object.entries({ out: 'Gasto', in: 'Entrada', refund: 'Reembolso', inv: 'Aplicação', skip: 'Ignorar' }).map(([k, l]) => `<button class="${t.type === k ? 'on' : ''}" data-action="set-type" data-id="${t.id}" data-type="${k}">${l}</button>`).join('')}</div>
+    ${t.type === 'out' || t.type === 'refund' ? `<div class="section-head" style="margin-top:18px"><h2 class="section-title">${t.type === 'refund' ? 'Abate o gasto de' : 'Categoria'}</h2></div>
     <div class="chip-wrap">${Object.entries(CATS).map(([k, c]) => `<button class="chip${k === t.cat ? ' on' : ''}" style="--cat:${c.color}" data-action="set-cat" data-id="${t.id}" data-cat="${k}"><i></i>${c.name}</button>`).join('')}</div>
-    <p class="note">${icon('info')} ${same > 1 ? `A mudança vale para os ${same} lançamentos de “${esc(t.merchant)}” e para os próximos.` : `Os próximos lançamentos de “${esc(t.merchant)}” seguem a mesma categoria.`}</p>` : ''}
+    ${t.type === 'out' ? `<p class="note">${icon('info')} ${same > 1 ? `A mudança vale para os ${same} lançamentos de “${esc(t.merchant)}” e para os próximos.` : `Os próximos lançamentos de “${esc(t.merchant)}” seguem a mesma categoria.`}</p>` : ''}` : ''}
+    ${t.type === 'in' ? `<p class="note">${icon('info')} Alguém te devolveu dinheiro? Marque como <b>Reembolso</b> para abater do gasto em vez de contar como renda.</p>` : ''}
+    <div class="section-head" style="margin-top:18px"><h2 class="section-title">Etiquetas</h2></div>
+    <div class="tags">${(t.tags || []).map((tg) => `<button class="tagchip on" data-action="tag-del" data-id="${t.id}" data-tag="${esc(tg)}">#${esc(tg)} ${icon('x')}</button>`).join('')}
+      ${allTags.map((tg) => `<button class="tagchip" data-action="tag-add" data-id="${t.id}" data-tag="${esc(tg)}">+ #${esc(tg)}</button>`).join('')}</div>
+    <form class="tag-form" data-id="${t.id}" style="margin-top:8px"><input class="field" name="tag" placeholder="Nova etiqueta, ex.: viagem-floripa" autocapitalize="none"></form>
     <div class="sheet-foot"><button class="btn block" data-action="close-sheet">Fechar</button>
     <button class="btn block ghost danger" data-action="del-tx" data-id="${t.id}">Excluir lançamento</button></div>`);
 }
@@ -866,7 +877,8 @@ function subSheet(sub) {
       <label><span>Dia da cobrança</span><input class="field" name="day" type="number" min="1" max="31" required value="${s.day}"></label></div>
       <label><span>Categoria</span><select class="field" name="cat">${Object.entries(CATS).filter(([, c]) => !c.unknown).map(([k, c]) => `<option value="${k}" ${k === s.cat ? 'selected' : ''}>${c.name}</option>`).join('')}</select></label>
       <div class="sheet-foot"><button class="btn block primary" type="submit">Salvar</button>
-      ${sub ? `<button class="btn block ghost danger" type="button" data-action="sub-del" data-id="${sub.id}">Remover assinatura</button>` : ''}</div>
+      ${sub ? `<div class="mini-actions" style="justify-content:center"><button class="btn small" type="button" data-action="remind" data-kind="sub" data-id="${sub.id}">${icon('bell')} Lembrete no iPhone</button><button class="btn small" type="button" data-action="calendar" data-kind="sub" data-id="${sub.id}">${icon('calendar')} Calendário</button></div>
+      <button class="btn block ghost danger" type="button" data-action="sub-del" data-id="${sub.id}">Remover assinatura</button>` : ''}</div>
     </form>`);
   $('#sub-form').onsubmit = (e) => {
     e.preventDefault();
@@ -887,14 +899,16 @@ function invSheet(inv) {
       <label><span>Tipo</span><select class="field" name="kind">${KINDS.map((k) => `<option ${k === x.kind ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
       <div class="grid-2"><label><span>Valor atual</span><input class="field" name="value" inputmode="decimal" required value="${num(x.value)}" placeholder="0,00"></label>
       <label><span>Valor aplicado</span><input class="field" name="invested" inputmode="decimal" value="${num(x.invested)}" placeholder="opcional"></label></div>
+      <label><span>Mês da aplicação (para comparar com CDI e inflação)</span><input class="field" name="since" type="month" value="${x.since || ''}" max="${currentMk()}"></label>
       <div class="sheet-foot"><button class="btn block primary" type="submit">Salvar</button>
       ${inv ? `<button class="btn block ghost danger" type="button" data-action="inv-del" data-id="${inv.id}">Remover</button>` : ''}</div>
     </form>`);
   $('#inv-form').onsubmit = (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
-    const v = { name: f.get('name').trim(), kind: f.get('kind'), value: parseMoneyInput(f.get('value')), invested: parseMoneyInput(f.get('invested')) || undefined, updated: new Date().toISOString() };
+    const v = { name: f.get('name').trim(), kind: f.get('kind'), value: parseMoneyInput(f.get('value')), invested: parseMoneyInput(f.get('invested')) || undefined, since: f.get('since') || undefined, updated: new Date().toISOString() };
     if (inv) Object.assign(inv, v); else data.inv.push({ id: uid(), ...v });
+    P.snapshotNetWorth(data);
     save(); closeSheet(); render(); toast('Investimento salvo');
   };
 }
@@ -950,6 +964,7 @@ document.addEventListener('click', async (e) => {
     case 'tx': txSheet(id); break;
     case 'set-cat': {
       const t = data.tx.find((x) => x.id === Number(id));
+      if (t.type === 'refund') { t.cat = a.dataset.cat; save(); txSheet(id); render(); break; }
       setRule(t.key, { cat: a.dataset.cat, name: t.merchant });
       const n = data.tx.filter((x) => x.key === t.key && x.type === 'out').map((x) => { x.cat = a.dataset.cat; return x; }).length;
       save(); txSheet(id); render();
@@ -959,7 +974,8 @@ document.addEventListener('click', async (e) => {
     case 'set-type': {
       const t = data.tx.find((x) => x.id === Number(id));
       t.type = a.dataset.type;
-      if (t.type !== 'out') t.cat = 'outros';
+      if (t.type === 'refund' && CATS[t.cat]?.unknown) t.cat = 'delivery';
+      else if (t.type !== 'out' && t.type !== 'refund') t.cat = 'outros';
       save(); txSheet(id); render(); break;
     }
     case 'del-tx': data.tx = data.tx.filter((x) => x.id !== Number(id)); save(); closeSheet(); render(); break;
@@ -1021,8 +1037,35 @@ document.addEventListener('click', async (e) => {
       if (!confirm('Apagar todos os dados deste aparelho? Isso não pode ser desfeito.')) break;
       await vault.wipe(); data = null; showGate(); welcome(); break;
     }
-    default: break;
+    case 'tag-add': case 'tag-del': {
+      const t = data.tx.find((x) => x.id === Number(id));
+      const tg = a.dataset.tag;
+      t.tags = act === 'tag-add' ? [...new Set([...(t.tags || []), tg])] : (t.tags || []).filter((x) => x !== tg);
+      save(); txSheet(id); render(); break;
+    }
+    case 'rates-fetch': {
+      toast('Consultando o Banco Central…');
+      try {
+        const r = await P.fetchRates();
+        Object.assign(data.settings, { cdi: r.cdi, ipca: r.ipca, ratesDate: r.date });
+        save(); render(); toast(`CDI ${String(r.cdi).replace('.', ',')}% · IPCA ${String(r.ipca).replace('.', ',')}%`);
+      } catch { toast('Sem conexão com o Banco Central. Digite as taxas à mão.'); }
+      break;
+    }
+    case 'calendar-subs': await R.openCalendar(data.subs.map((x) => plan.reminderFor('sub', x.id))); break;
+    default: await plan.action(act, a); break;
   }
+});
+
+document.addEventListener('submit', (e) => {
+  const f = e.target.closest('.tag-form');
+  if (!f || !data) return;
+  e.preventDefault();
+  const tg = new FormData(f).get('tag').trim().replace(/^#/, '').toLowerCase().replace(/\s+/g, '-');
+  if (!tg) return;
+  const t = data.tx.find((x) => x.id === Number(f.dataset.id));
+  t.tags = [...new Set([...(t.tags || []), tg])];
+  save(); txSheet(t.id); render();
 });
 
 document.addEventListener('change', (e) => {
@@ -1038,9 +1081,11 @@ document.addEventListener('change', (e) => {
     save(); toast(n ? `${n} transferência${n > 1 ? 's' : ''} entre contas encontrada${n > 1 ? 's' : ''}` : 'Salvo');
     return;
   }
+  if (data && plan.onChange(e.target)) return;
   const s = e.target.dataset?.setting;
   if (!s || !data) return;
-  data.settings[s] = parseMoneyInput(e.target.value);
+  // taxas aceitam "10,65" ou "10.65"
+  data.settings[s] = ['cdi', 'ipca'].includes(s) ? parseFloat(e.target.value.replace(',', '.')) || 0 : parseMoneyInput(e.target.value);
   save(); toast('Salvo');
 });
 

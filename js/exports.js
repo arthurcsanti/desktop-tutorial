@@ -8,6 +8,7 @@ const money = (v) => BRL.format(v).replace(/ /g, ' ');
 const pct = (v) => `${Math.round(v * 100)}%`;
 const br = (iso) => iso.split('-').reverse().join('/');
 const signed = (t) => (t.type === 'out' || t.type === 'inv' ? -t.amount : t.amount);
+const catLabel = (t) => (t.type === 'out' || t.type === 'refund' ? CATS[t.cat]?.name : TYPES[t.type]);
 const monthTx = (data, mk) => data.tx.filter((t) => mkOf(t.date) === mk).sort((a, b) => a.date.localeCompare(b.date));
 
 export function markdown(data, mk) {
@@ -48,7 +49,7 @@ export function markdown(data, mk) {
     L.push(`| **Total** | | **${money(inv)}** |`);
   }
   L.push('', '## Lançamentos', '', '| Data | Descrição | Categoria | Valor |', '|---|---|---|---:|');
-  monthTx(data, mk).forEach((t) => L.push(`| ${br(t.date)} | ${t.merchant.replace(/\|/g, '/')} | ${t.type === 'out' ? CATS[t.cat]?.name : TYPES[t.type]} | ${money(signed(t))} |`));
+  monthTx(data, mk).forEach((t) => L.push(`| ${br(t.date)} | ${t.merchant.replace(/\|/g, '/')} | ${catLabel(t)} | ${money(signed(t))} |`));
   L.push('', `*Gerado pelo Lastro em ${new Date().toLocaleDateString('pt-BR')}.*`, '');
   return L.join('\n');
 }
@@ -147,7 +148,7 @@ export async function pdf(data, mk) {
   };
   table('ONDE MAIS GASTEI', ['Loja', 'Vezes', 'Total'], s.merchants.slice(0, 10).map((m) => [t(m.name), m.count, t(money(m.total))]), { 1: { halign: 'right' }, 2: { halign: 'right' } });
   if (data.subs.length) table('ASSINATURAS', ['Assinatura', 'Dia', 'Valor'], data.subs.map((x) => [t(x.name), x.day, t(money(x.amount))]), { 1: { halign: 'right' }, 2: { halign: 'right' } });
-  table('LANÇAMENTOS', ['Data', 'Descrição', 'Categoria', 'Valor'], monthTx(data, mk).map((x) => [br(x.date), t(x.merchant), t(x.type === 'out' ? CATS[x.cat]?.name : TYPES[x.type]), t(money(signed(x)))]), { 3: { halign: 'right' } });
+  table('LANÇAMENTOS', ['Data', 'Descrição', 'Categoria', 'Valor'], monthTx(data, mk).map((x) => [br(x.date), t(x.merchant), t(catLabel(x)), t(money(signed(x)))]), { 3: { halign: 'right' } });
 
   const pages = doc.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
