@@ -3,55 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Caderno</title>
-<meta name="description" content="Caderno — finanças pessoais, offline e criptografadas.">
+<title>Lastro</title>
+<meta name="description" content="Lastro — finanças pessoais, offline e criptografadas no seu iPhone.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Caderno">
+<meta name="apple-mobile-web-app-title" content="Lastro">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
 <meta name="theme-color" content="#FBFBFA" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/logo.svg">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="styles.css">
+<script>
+  try { var t = localStorage.getItem('lastro-theme'); if (t && t !== 'auto') document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
 </head>
 <body>
 
-<!-- Tela de bloqueio -->
-<section id="lock" class="lock" aria-label="Desbloquear">
-  <div class="lock-inner">
-    <img class="lock-logo" src="icons/logo.svg" alt="" width="72" height="72">
-    <h1 class="lock-title">Caderno</h1>
-    <p class="lock-sub">Digite seu código</p>
-    <div class="pin-dots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-    <div class="keypad" role="group" aria-label="Teclado numérico">
-      <button data-k="1">1</button><button data-k="2">2<small>ABC</small></button><button data-k="3">3<small>DEF</small></button>
-      <button data-k="4">4<small>GHI</small></button><button data-k="5">5<small>JKL</small></button><button data-k="6">6<small>MNO</small></button>
-      <button data-k="7">7<small>PQRS</small></button><button data-k="8">8<small>TUV</small></button><button data-k="9">9<small>WXYZ</small></button>
-      <span></span><button data-k="0">0</button><button data-k="del" class="key-ghost" aria-label="Apagar">Apagar</button>
-    </div>
-    <p class="lock-foot"><span class="ico" data-i="lock"></span> Dados criptografados neste aparelho</p>
-  </div>
-</section>
+<section id="lock" class="lock" aria-label="Lastro"></section>
 
 <div id="app" class="app" hidden>
   <aside class="sidebar" aria-label="Navegação">
     <div class="side-brand">
       <img src="icons/logo.svg" alt="" width="28" height="28">
-      <div><strong>Caderno</strong><span>Finanças pessoais</span></div>
+      <div><strong>Lastro</strong><span>Finanças pessoais</span></div>
     </div>
     <nav class="side-nav"></nav>
-    <button class="side-import" data-action="import"><span class="ico" data-i="upload"></span> Importar extrato</button>
-    <div class="side-foot"><span class="ico" data-i="lock"></span> Offline · AES-256</div>
+    <button class="side-import" data-action="import">Importar extrato</button>
+    <div class="side-foot">Offline · AES-256</div>
   </aside>
-
   <main id="view" class="view"></main>
-
   <nav class="tabbar" aria-label="Abas"></nav>
 </div>
 
-<!-- Bottom sheet genérico -->
 <div id="sheet" class="sheet-wrap" hidden>
   <div class="sheet-backdrop" data-action="close-sheet"></div>
   <div class="sheet" role="dialog" aria-modal="true">
@@ -61,8 +47,8 @@
 </div>
 
 <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
-<div id="toast" class="toast" hidden></div>
+<div id="toast" class="toast" role="status" hidden></div>
 
-<script src="app.js"></script>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>

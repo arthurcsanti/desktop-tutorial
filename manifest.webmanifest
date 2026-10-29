@@ -1,6 +1,6 @@
 {
-  "name": "Caderno — finanças pessoais",
-  "short_name": "Caderno",
+  "name": "Lastro — finanças pessoais",
+  "short_name": "Lastro",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
