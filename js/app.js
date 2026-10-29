@@ -660,7 +660,7 @@ const views = {
           <button class="row plain row-btn" data-action="sample"><div class="row-main"><div class="row-title">Carregar dados de exemplo</div></div>${icon('chevron')}</button>
           <button class="row plain row-btn" data-action="wipe"><div class="row-main"><div class="row-title danger">Apagar todos os dados</div></div></button>
         </div></div>
-      <p class="empty-hint">Lastro · versão 1.2.1</p>`;
+      <p class="empty-hint">Lastro · versão 1.2.2</p>`;
   },
 };
 
@@ -1140,7 +1140,22 @@ function setTheme(t) {
   if (await vault.exists()) unlockScreen(true); else welcome();
 })();
 
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+// atualizações: quando uma versão nova assume, recarrega na tela de bloqueio ou oferece o botão de atualizar
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', async () => {
+    if (!hadController) return;
+    if (!data) { location.reload(); return; }
+    const el = $('#toast');
+    el.innerHTML = '<button class="update-btn">Nova versão do Lastro · Atualizar</button>';
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    el.querySelector('button').onclick = async () => { await save(); location.reload(); };
+  });
+}
 
 // atalho só para testes no computador (localhost): ?demo cria um cofre com o código 123456 e dados de exemplo
 if (['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('demo')) {

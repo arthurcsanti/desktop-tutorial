@@ -1,6 +1,6 @@
 // Guarda todos os arquivos do app no aparelho: depois da primeira abertura, funciona sem internet.
 // Ao publicar uma versão nova, troque VERSION para o iPhone baixar os arquivos atualizados.
-const VERSION = 'lastro-1.2.1';
+const VERSION = 'lastro-1.2.2';
 const FILES = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
   'js/app.js', 'js/vault.js', 'js/categorize.js', 'js/parsers.js', 'js/analysis.js', 'js/exports.js', 'js/sample.js',
@@ -11,7 +11,8 @@ const FILES = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: 'reload' ignora o cache HTTP do GitHub Pages (10 min); sem isso a versão nova podia guardar arquivos antigos
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))

@@ -527,3 +527,5 @@ a.closing-card { display: block; color: inherit; text-decoration: none; }
 .link-like { text-align: left; }
 .seg.tight button { padding: 6px 4px; font-size: 12.5px; min-width: 0; white-space: nowrap; }
 .raw-text { font: 11px/1.45 var(--mono); background: var(--surface-2); border-radius: 10px; padding: 12px; max-height: 50vh; overflow: auto; white-space: pre-wrap; word-break: break-word; color: var(--text-2); }
+.toast .update-btn { color: inherit; font-weight: 600; }
+.toast:has(.update-btn) { pointer-events: auto; }
