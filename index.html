@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Máquina de Roteiro</title>
+  <meta name="description" content="Escreva roteiros como numa máquina de escrever: papel envelhecido, estruturas prontas e tudo salvo na nuvem.">
+  <meta name="theme-color" content="#1b1712">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Roteiro">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar">
+      <header class="brand">
+        <img src="icons/icon.svg" alt="" width="34" height="34">
+        <div>
+          <div class="brand-name">Máquina de Roteiro</div>
+          <div class="brand-sub">arquivo de roteiros</div>
+        </div>
+      </header>
+      <button class="btn btn-stamp btn-new" id="btn-new" type="button">+ Puxar folha nova</button>
+      <input class="search" id="search" type="search" placeholder="Buscar nos roteiros…" autocomplete="off">
+      <nav class="nav" id="nav"></nav>
+      <div class="list" id="list"></div>
+      <footer class="sidebar-foot">
+        <button class="sync" id="btn-sync" type="button" title="Sincronizar com o Google Drive">
+          <span class="sync-dot" id="sync-dot"></span><span id="sync-label">Só neste aparelho</span>
+        </button>
+        <button class="btn btn-ghost" id="btn-settings" type="button">Ajustes</button>
+      </footer>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+
+    <main class="desk" id="desk">
+      <div class="topbar">
+        <button class="btn btn-ghost btn-menu" id="btn-menu" type="button" aria-label="Abrir arquivo">☰</button>
+        <div class="crumb" id="crumb"></div>
+        <div class="top-actions" id="top-actions"></div>
+      </div>
+      <div class="editor" id="editor"></div>
+      <div class="savestate" id="savestate"></div>
+    </main>
+  </div>
+
+  <dialog class="dialog" id="dlg-new">
+    <form method="dialog" class="dialog-body">
+      <header class="dialog-head">
+        <h2>Folha nova</h2>
+        <button class="btn btn-ghost" value="cancel" aria-label="Fechar">✕</button>
+      </header>
+      <p class="muted">Escolha a estrutura. Dá para mudar tudo depois.</p>
+      <div class="templates" id="templates"></div>
+    </form>
+  </dialog>
+
+  <dialog class="dialog" id="dlg-settings">
+    <form method="dialog" class="dialog-body" id="settings-form">
+      <header class="dialog-head">
+        <h2>Ajustes</h2>
+        <button class="btn btn-ghost" value="cancel" aria-label="Fechar">✕</button>
+      </header>
+
+      <fieldset>
+        <legend>Papel</legend>
+        <div class="themes" id="themes"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Máquina</legend>
+        <label class="check"><input type="checkbox" id="opt-sound"> Som de teclas de máquina de escrever</label>
+        <label class="check"><input type="checkbox" id="opt-typewriter"> Rolagem de máquina (a linha atual fica no meio da tela)</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Google Drive</legend>
+        <p class="muted small">Seus roteiros ficam salvos na pasta <b>Máquina de Roteiro</b> do seu Drive e aparecem em qualquer aparelho conectado à mesma conta. O app só enxerga os arquivos que ele mesmo criou.</p>
+        <label class="field">ID do cliente OAuth do Google
+          <input type="text" id="opt-client" placeholder="000000000000-xxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+        </label>
+        <p class="muted small">Precisa ser criado uma vez no Google Cloud. O passo a passo está no README do projeto.</p>
+        <div class="row">
+          <button class="btn btn-stamp" type="button" id="btn-connect">Conectar ao Drive</button>
+          <button class="btn" type="button" id="btn-sync-now">Sincronizar agora</button>
+          <button class="btn btn-ghost" type="button" id="btn-disconnect">Desconectar</button>
+        </div>
+        <p class="small" id="drive-status"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Cópia de segurança</legend>
+        <div class="row">
+          <button class="btn" type="button" id="btn-backup">Baixar todos os roteiros (.json)</button>
+          <label class="btn">Importar arquivo…<input type="file" id="file-import" accept=".json,application/json" hidden></label>
+        </div>
+      </fieldset>
+    </form>
+  </dialog>
+
+  <dialog class="dialog" id="dlg-export">
+    <form method="dialog" class="dialog-body">
+      <header class="dialog-head">
+        <h2>Exportar</h2>
+        <button class="btn btn-ghost" value="cancel" aria-label="Fechar">✕</button>
+      </header>
+      <div class="export-list">
+        <button class="btn" type="button" data-export="pdf">Imprimir / salvar PDF</button>
+        <button class="btn" type="button" data-export="md">Markdown (.md) — Notion e Obsidian</button>
+        <button class="btn" type="button" data-export="txt">Texto (.txt)</button>
+        <button class="btn" type="button" data-export="json">Arquivo do app (.json)</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div id="print-area" class="print-area"></div>
+
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
