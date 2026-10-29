@@ -1,5 +1,8 @@
-// Estruturas de roteiro. Cada modelo define a ficha, as seções do roteiro
-// (com cenas iniciais) e as notas de produção de um roteiro novo.
+// Estruturas de roteiro e tipos de aba.
+// Um roteiro é uma página com abas (como no Notion). Cada aba tem um tipo:
+// página de texto, roteiro em cenas, moodboard, referências, tabela ou texto corrido.
+
+import { uid, today } from './core.js';
 
 export const STATUSES = ['Ideia', 'Rascunho', 'Revisão', 'Gravação', 'Edição', 'Publicado'];
 
@@ -12,6 +15,28 @@ export const LEGEND = [
   { code: 'LETTERING', insert: 'LETTERING: ', desc: 'Texto ou gráfico que aparece na tela.' },
 ];
 
+export const PLANOS = ['Plano geral', 'Plano aberto', 'Plano médio', 'Plano americano', 'Close', 'Superclose', 'Detalhe', 'Plongée', 'Contra-plongée', 'POV', 'Drone', 'Tela / gravação', 'Arquivo'];
+
+export const TAB_TYPES = {
+  pagina: { icon: '¶', label: 'Página', desc: 'Texto com títulos, listas, tarefas, citações, imagens e tabelas.' },
+  roteiro: { icon: '§', label: 'Roteiro', desc: 'Cenas com narração, visual, plano e frame. Vira storyboard.' },
+  moodboard: { icon: '▦', label: 'Moodboard', desc: 'Mural de fotos, cores, notas e links.' },
+  referencias: { icon: '↗', label: 'Referências', desc: 'Músicas, vídeos, filmes, artigos e imagens com link.' },
+  tabela: { icon: '▤', label: 'Tabela', desc: 'Banco de dados como no Notion: colunas com tipo, ordenação e quadro.' },
+  texto: { icon: '≡', label: 'Texto corrido', desc: 'Folha pautada para o roteiro inteiro, sem tabela.' },
+};
+
+export const COLUMN_TYPES = {
+  texto: 'Texto',
+  numero: 'Número',
+  selecao: 'Seleção',
+  check: 'Caixa de seleção',
+  data: 'Data',
+  link: 'Link',
+};
+
+export const REF_TYPES = ['Música', 'Vídeo', 'Filme / série', 'Imagem', 'Artigo', 'Livro', 'Podcast', 'Pessoa', 'Outro'];
+
 const FICHA_PADRAO = [
   ['Ideia central', 'Sobre o que é esse vídeo de verdade? Resuma em no máximo 2 frases.'],
   ['Opções de título', 'Opção A:\nOpção B:\nOpção C:'],
@@ -20,16 +45,6 @@ const FICHA_PADRAO = [
   ['Duração estimada', '00 min'],
   ['Locações', 'Onde vai gravar? Autorizações necessárias?'],
   ['Elenco e equipe', 'Quem aparece e quem grava, edita e produz.'],
-  ['Referências', 'Vídeos, filmes, músicas e links que inspiram este roteiro.'],
-];
-
-const NOTAS_PADRAO = [
-  ['Equipamento', 'Câmeras, lentes, microfones, baterias, cartões.'],
-  ['B-roll e takes extras', 'Imagens de apoio que precisam ser gravadas.'],
-  ['Música e SFX', 'Trilhas, efeitos e direitos autorais.'],
-  ['Thumbnail', 'Ideia de imagem e texto da capa do vídeo.'],
-  ['Descrição e tags', 'Texto de descrição, capítulos, links e palavras-chave.'],
-  ['Pendências', 'O que falta definir, autorizar ou gravar.'],
 ];
 
 const V = 'DESCREVA AS IMAGENS DA CENA';
@@ -190,13 +205,104 @@ export const TEMPLATES = [
   },
 ];
 
-export function uid() {
-  if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
-  return 'id-' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+// ---------- conteúdo inicial das abas ----------
+
+function fichaMd(entries) {
+  const head = [
+    '**Escrito por:** ',
+    '**Direção:** — · **Produção:** — · **Edição:** —',
+    `**Versão** 1.0 · **Rascunho nº** 1 · ${today()}`,
+  ].join('\n');
+  const parts = entries.map(([label, hint]) => {
+    if (!hint) return `### ${label}`;
+    if (hint.includes('\n')) return `### ${label}\n\n` + hint.split('\n').map((l) => `- ${l}`).join('\n');
+    return `### ${label}\n\n> [!tip] ${hint}`;
+  });
+  return [head, ...parts].join('\n\n');
 }
 
-export function today() {
-  return new Date().toLocaleDateString('pt-BR');
+const PRODUCAO_MD = `### Equipamento
+- [ ] Câmera e lentes
+- [ ] Microfones
+- [ ] Baterias e cartões
+- [ ] Luz
+
+### B-roll e takes extras
+
+> [!tip] Imagens de apoio que precisam ser gravadas.
+
+### Música e SFX
+
+> [!tip] Trilhas, efeitos e direitos autorais. As referências ficam na aba Referências.
+
+### Thumbnail
+
+> [!tip] Ideia de imagem e texto da capa do vídeo.
+
+### Publicação
+- [ ] Título final
+- [ ] Descrição com capítulos e links
+- [ ] Tags e palavras-chave
+- [ ] Thumbnail exportada
+- [ ] Legendas
+- [ ] Agendado
+
+### Pendências
+- [ ] 
+
+### Histórico de versões
+
+| Versão | Data | Alterações |
+| --- | --- | --- |
+| 1.0 | ${'{{hoje}}'} | Primeiro rascunho. |`;
+
+function table(names, types = {}, rowsCount = 1) {
+  const columns = names.map((name) => ({ id: uid(), name, type: types[name] || 'texto' }));
+  const rows = Array.from({ length: rowsCount }, () => ({
+    id: uid(),
+    cells: Object.fromEntries(columns.map((c) => [c.id, c.type === 'check' ? false : ''])),
+  }));
+  return { columns, rows, view: 'tabela' };
+}
+
+// Abas que o usuário pode acrescentar a qualquer roteiro.
+export const TAB_PRESETS = [
+  { name: 'Página em branco', type: 'pagina', make: () => ({ content: '' }) },
+  { name: 'Pesquisa', type: 'pagina', make: () => ({ content: '### Perguntas\n\n- \n\n### Fontes\n\n- \n\n### Dados e números\n\n- \n\n### Citações\n\n> ' }) },
+  { name: 'Thumbnail e título', type: 'pagina', make: () => ({ content: '### Títulos para testar\n\n- [ ] \n- [ ] \n\n### Ideias de thumbnail\n\n> [!tip] Rosto + emoção + no máximo 3 palavras. Cole aqui rascunhos e fotos.\n\n### Texto da capa\n\n' }) },
+  { name: 'Publicação', type: 'pagina', make: () => ({ content: '### Descrição\n\n\n\n### Capítulos\n\n- 00:00 Abertura\n\n### Tags\n\n\n\n### Checklist\n\n- [ ] Legendas\n- [ ] Tela final\n- [ ] Cards\n- [ ] Comentário fixado' }) },
+  { name: 'Roteiro', type: 'roteiro', make: () => ({ view: 'tabela', sections: [{ id: uid(), name: 'Cena', hint: '', scenes: [{ id: uid(), narration: '', visual: '', plano: '', image: '' }] }] }) },
+  { name: 'Moodboard', type: 'moodboard', make: () => ({ items: [] }) },
+  { name: 'Referências', type: 'referencias', make: () => ({ view: 'cartoes', items: [] }) },
+  { name: 'Plano de gravação', type: 'tabela', make: () => table(['Cena', 'Local', 'Data', 'Status', 'Gravado'], { Data: 'data', Status: 'selecao', Gravado: 'check' }) },
+  { name: 'Lista de takes', type: 'tabela', make: () => table(['Cena', 'Take', 'Plano', 'Bom', 'Nota'], { Take: 'numero', Plano: 'selecao', Bom: 'check' }) },
+  { name: 'Personagens e entrevistados', type: 'tabela', make: () => table(['Nome', 'Papel', 'Contato', 'Autorização', 'Notas'], { Papel: 'selecao', Autorização: 'check' }) },
+  { name: 'Locações', type: 'tabela', make: () => table(['Local', 'Endereço', 'Melhor horário', 'Autorização', 'Notas'], { Autorização: 'check' }) },
+  { name: 'Orçamento', type: 'tabela', make: () => table(['Item', 'Categoria', 'Valor', 'Pago'], { Categoria: 'selecao', Valor: 'numero', Pago: 'check' }) },
+  { name: 'Tabela em branco', type: 'tabela', make: () => table(['Nome', 'Notas']) },
+  { name: 'Texto corrido', type: 'texto', make: () => ({ content: '' }) },
+];
+
+export function makeTab(presetName, name) {
+  const p = TAB_PRESETS.find((x) => x.name === presetName) || TAB_PRESETS[0];
+  return { id: uid(), type: p.type, name: name || (p.name === 'Página em branco' ? 'Página' : p.name === 'Tabela em branco' ? 'Tabela' : p.name), ...p.make() };
+}
+
+function roteiroTab(t) {
+  return {
+    id: uid(),
+    type: 'roteiro',
+    name: 'Roteiro',
+    view: 'tabela',
+    sections: t.sections.map((s) => ({
+      id: uid(),
+      name: s.name,
+      hint: s.hint,
+      // pn/pv: texto de exemplo mostrado enquanto a cena está vazia
+      scenes: s.scenes.map(([pn, pv]) => ({ id: uid(), narration: '', visual: '', plano: '', image: '', pn, pv })),
+    })),
+  };
 }
 
 export function buildScript(templateId) {
@@ -209,23 +315,65 @@ export function buildScript(templateId) {
     folder: '',
     tags: [],
     status: 'Ideia',
+    cover: '',
     pinned: false,
     deleted: false,
     createdAt: now,
     updatedAt: now,
-    cover: {
-      subtitle: '', episode: '', author: '', direcao: '', producao: '', edicao: '',
-      versao: '1.0', rascunho: '1', data: today(), contato: '',
-    },
-    ficha: t.ficha.map(([label, hint]) => ({ id: uid(), label, hint, value: '' })),
-    sections: t.sections.map((s) => ({
-      id: uid(),
-      name: s.name,
-      hint: s.hint,
-      scenes: s.scenes.map(([narration, visual]) => ({ id: uid(), narration: '', visual: '', pn: narration, pv: visual })),
-    })),
-    fulltext: '',
-    notes: NOTAS_PADRAO.map(([label, hint]) => ({ id: uid(), label, hint, value: '' })),
-    versions: [{ id: uid(), v: '1.0', date: today(), changes: 'Primeiro rascunho.' }],
+    tabs: [
+      { id: uid(), type: 'pagina', name: 'Ficha', content: fichaMd(t.ficha) },
+      roteiroTab(t),
+      makeTab('Moodboard'),
+      makeTab('Referências'),
+      makeTab('Texto corrido'),
+      { id: uid(), type: 'pagina', name: 'Produção', content: PRODUCAO_MD.replace('{{hoje}}', today()) },
+      makeTab('Plano de gravação'),
+    ],
   };
+}
+
+// Roteiros da primeira versão do app (ficha/sections/notes) viram o modelo com abas.
+export function migrate(s) {
+  if (s.tabs || s.purged) return s;
+  const c = s.cover || {};
+  const kv = (rows) => (rows || []).map((r) => `### ${r.label}\n\n${r.value || (r.hint ? `> [!tip] ${r.hint.replace(/\n/g, ' ')}` : '')}`).join('\n\n');
+  const ficha = [
+    `**Subtítulo:** ${c.subtitle || ''} · **Episódio:** ${c.episode || ''}`,
+    `**Escrito por:** ${c.author || ''}`,
+    `**Direção:** ${c.direcao || '—'} · **Produção:** ${c.producao || '—'} · **Edição:** ${c.edicao || '—'}`,
+    `**Versão** ${c.versao || '1.0'} · **Rascunho nº** ${c.rascunho || '1'} · ${c.data || ''}`,
+    c.contato ? `**Contato:** ${c.contato}` : '',
+    kv(s.ficha),
+  ].filter(Boolean).join('\n\n');
+  const versions = (s.versions || []).map((v) => [v.v, v.date, v.changes]);
+  const producao = kv(s.notes) + (versions.length
+    ? '\n\n### Histórico de versões\n\n| Versão | Data | Alterações |\n| --- | --- | --- |\n' + versions.map((r) => '| ' + r.map((x) => String(x || '').replace(/\|/g, '\\|').replace(/\n/g, '<br>')).join(' | ') + ' |').join('\n')
+    : '');
+  const out = {
+    id: s.id, title: s.title || '', template: s.template || '', folder: s.folder || '', tags: s.tags || [],
+    status: s.status || 'Ideia', cover: '', pinned: !!s.pinned, deleted: !!s.deleted,
+    createdAt: s.createdAt || Date.now(), updatedAt: s.updatedAt || Date.now(),
+    tabs: [
+      { id: uid(), type: 'pagina', name: 'Ficha', content: ficha },
+      { id: uid(), type: 'roteiro', name: 'Roteiro', view: 'tabela', sections: (s.sections || []).map((sec) => ({ ...sec, scenes: sec.scenes.map((x) => ({ plano: '', image: '', ...x })) })) },
+      makeTab('Moodboard'),
+      makeTab('Referências'),
+      { id: uid(), type: 'texto', name: 'Texto corrido', content: s.fulltext || '' },
+      { id: uid(), type: 'pagina', name: 'Produção', content: producao },
+      makeTab('Plano de gravação'),
+    ],
+  };
+  return out;
+}
+
+// Imagem que representa o roteiro na galeria: capa, 1ª foto do moodboard ou 1º frame.
+export function coverOf(s) {
+  if (s.cover) return s.cover;
+  for (const t of s.tabs || []) {
+    if (t.type === 'moodboard') { const it = t.items.find((x) => x.kind === 'image'); if (it) return it.src; }
+  }
+  for (const t of s.tabs || []) {
+    if (t.type === 'roteiro') for (const sec of t.sections) for (const c of sec.scenes) if (c.image) return c.image;
+  }
+  return '';
 }

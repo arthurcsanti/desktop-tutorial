@@ -1,7 +1,7 @@
 // Armazenamento local (IndexedDB). Tudo funciona offline; a nuvem é opcional.
 
 const DB_NAME = 'maquina-de-roteiro';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let dbPromise;
 
 function open() {
@@ -9,8 +9,10 @@ function open() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
-      db.createObjectStore('scripts', { keyPath: 'id' });
-      db.createObjectStore('meta');
+      if (!db.objectStoreNames.contains('scripts')) db.createObjectStore('scripts', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta');
+      // imagens: { path: 'anexos/abc.jpg', blob, type, createdAt, synced }
+      if (!db.objectStoreNames.contains('files')) db.createObjectStore('files', { keyPath: 'path' });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -33,3 +35,7 @@ export const allScripts = () => run('scripts', 'readonly', (s) => s.getAll());
 export const putScript = (script) => run('scripts', 'readwrite', (s) => s.put(script));
 export const getMeta = (key) => run('meta', 'readonly', (s) => s.get(key));
 export const setMeta = (key, value) => run('meta', 'readwrite', (s) => s.put(value, key));
+export const deleteScript = (id) => run('scripts', 'readwrite', (s) => s.delete(id));
+export const getFile = (path) => run('files', 'readonly', (s) => s.get(path));
+export const putFile = (file) => run('files', 'readwrite', (s) => s.put(file));
+export const allFiles = () => run('files', 'readonly', (s) => s.getAll());

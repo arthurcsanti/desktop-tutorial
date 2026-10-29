@@ -10,51 +10,64 @@ Muitos apps hoje têm a mesma cara: gradiente roxo, cantos arredondados, ícone 
 - **Cantos retos, linhas finas e pontilhadas.** Linguagem de formulário impresso, de ficha técnica de produção.
 - **Nada se mexe sem motivo.** Sem animações de "mágica", só o som da tecla (opcional) e o "carro" no Enter.
 
-## Já está no app (versão 1)
+## Já está no app (versão 2)
 
 Veja a lista completa no [README](../README.md). Em resumo:
 
-- 8 estruturas de roteiro;
-- o seu modelo do Google Docs transformado em editor;
-- pastas, tags, status, busca e lixeira;
-- três papéis;
-- modo foco e som de máquina;
-- exportação em PDF, Markdown, TXT e JSON;
-- funciona offline;
-- sincroniza com o Google Drive;
-- instala no Android, iOS, Windows e Mac.
+- **Arquivo como no Notion:** galeria, lista, tabela e quadro por status; pastas e subpastas, tags, fixados, lixeira e busca.
+- **Roteiro como página:** capa, propriedades e abas.
+- **Seis tipos de aba:** página, roteiro (tabela ou storyboard), moodboard, referências, tabela e texto corrido. Há 14 modelos de aba prontos.
+- **Editor em blocos (Notion + Obsidian):** comando `/`, atalhos de Markdown, destaques, tarefas, imagens, tabelas, links com texto e `[[links entre roteiros]]`.
+- **Storyboard:** frame e plano em cada cena.
+- **Moodboard:** fotos, notas, cores e links; o "Gerar do roteiro" monta o mural e extrai a paleta de cores.
+- **Referências:** cada link com texto próprio, miniatura e título automáticos.
+- **Markdown como formato oficial:** cada roteiro é um `.md` com as imagens em `anexos/`. Sincroniza com o Google Drive e abre no Obsidian.
+- **Exportação:** PDF com as abas escolhidas, `.zip` para o Obsidian, `.md` e `.txt`. Importa `.md`, `.zip` e `.json`.
+- **8 estruturas de roteiro**, três papéis, som de máquina, modo foco e funcionamento offline.
+
+## Abas sugeridas para cada roteiro
+
+Já vêm por padrão: **Ficha · Roteiro · Moodboard · Referências · Texto corrido · Produção · Plano de gravação**.
+
+Pelo botão **+ aba** dá para acrescentar:
+
+- **Pesquisa:** perguntas, fontes, dados e citações.
+- **Thumbnail e título:** testes A/B de título e rascunhos de capa.
+- **Publicação:** descrição, capítulos, tags e checklist de upload.
+- **Lista de takes:** cena, take, plano e se ficou bom.
+- **Personagens e entrevistados:** papel, contato e autorização de imagem.
+- **Locações:** endereço, melhor horário e autorização.
+- **Orçamento:** item, categoria, valor (com soma) e se já foi pago.
+- **Roteiro extra:** uma versão alternativa ou o roteiro do Short derivado do vídeo longo.
 
 ## Próximos passos sugeridos
 
 ### Escrita
 
-- **Teleprompter:** o texto integral rolando em letras grandes, com a velocidade ajustável. Dá para gravar lendo direto do celular ou do tablet.
+- **Teleprompter:** o texto corrido rolando em letras grandes, com a velocidade ajustável. Dá para gravar lendo direto do celular ou do tablet.
 - **Cronômetro de leitura:** você lê em voz alta e o app marca quanto tempo cada cena realmente leva.
-- **Mais rolagem de máquina:** manter a linha atual no centro também nas cenas da tabela, não só no texto integral.
 - **Ditado:** falar e o texto aparecer datilografado, letra por letra.
-- **Contagem por seção:** tempo estimado de cada ato, para equilibrar o ritmo (um gancho de 2 minutos é um alerta).
+- **Tempo por seção:** tempo estimado de cada ato, para equilibrar o ritmo (um gancho de 2 minutos é um alerta).
 
-### Organização (Notion e Obsidian)
+### Organização
 
-- **Links entre roteiros com `[[colchetes duplos]]`,** como no Obsidian. Por exemplo, ligar um episódio ao anterior ou a uma pesquisa.
-- **Notas soltas / caderno de ideias:** folhas rápidas, sem estrutura, para anotar uma ideia na rua e depois transformar em roteiro.
-- **Quadro por status (kanban):** colunas Ideia → Rascunho → Gravação → Edição → Publicado, arrastando os cartões.
-- **Calendário de publicação:** data prevista de cada vídeo.
+- **Painel de menções:** no rodapé de cada roteiro, a lista dos outros roteiros que apontam para ele com `[[ ]]`, como no Obsidian.
 - **Mapa de conexões:** um grafo dos roteiros, séries e tags.
+- **Calendário de publicação:** data prevista de cada vídeo, com visualização em calendário no arquivo.
 - **Séries:** agrupar episódios com capa e numeração automática.
-- **Modelos próprios:** salvar qualquer roteiro como estrutura nova.
+- **Modelos próprios:** salvar qualquer roteiro (com as abas) como estrutura nova.
+- **Caderno de ideias rápidas:** um botão para anotar uma ideia na rua, que depois vira roteiro.
 
 ### Produção
 
-- **Lista de gravação gerada do roteiro:** todos os campos "Visual" viram um checklist de takes.
-- **Imagens de referência** coladas na coluna Visual (storyboard simples).
+- **Ordem do dia automática:** os campos Visual e Plano viram a lista de takes, agrupada por locação.
+- **Moodboard livre:** arrastar e posicionar os itens no mural à mão, como um quadro de cortiça de verdade.
 - **Comparar versões:** ver o que mudou entre o rascunho 1 e o 2, como uma folha corrigida à caneta.
-- **Exportar para Fountain** (formato padrão de roteiro de cinema) e para legendas (.srt) a partir do texto integral.
+- **Exportar para Fountain** (formato padrão de roteiro de cinema) e para legendas (.srt) a partir do texto corrido.
 
 ### Nuvem e aparelhos
 
-- **Apps nas lojas:** o mesmo código pode ser empacotado com **Capacitor** (Google Play e App Store) e **Tauri** ou **PWABuilder** (Microsoft Store). O PWA de hoje já instala sem loja; as lojas trazem visibilidade e algumas integrações nativas.
-- **Conflitos mais inteligentes:** hoje vence a edição mais recente. O próximo passo é juntar as mudanças campo a campo quando dois aparelhos editam o mesmo roteiro offline.
+- **Apps nas lojas:** o mesmo código pode ser empacotado com **Capacitor** (Google Play e App Store) e **Tauri** ou **PWABuilder** (Microsoft Store). O app de hoje já instala sem loja.
+- **Conflitos mais inteligentes:** hoje, quando o mesmo roteiro é editado em dois aparelhos sem internet, vence a edição mais recente. O próximo passo é juntar as mudanças aba por aba.
 - **Outras nuvens:** Dropbox ou iCloud Drive, além do Google Drive.
-- **Cópia legível no Drive:** além do arquivo do app, salvar um `.md` ou Google Doc de cada roteiro para ler fora do app.
 - **Colaboração:** compartilhar um roteiro com a equipe (direção, edição) com comentários na margem, como bilhetes na folha.
