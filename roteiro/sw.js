@@ -1,5 +1,5 @@
 // Guarda o app no aparelho para abrir e escrever mesmo sem internet.
-const CACHE = 'maquina-de-roteiro-v4';
+const CACHE = 'maquina-de-roteiro-v5';
 const SHELL = [
   './', './index.html', './css/style.css', './manifest.webmanifest',
   './js/app.js', './js/core.js', './js/db.js', './js/drive.js', './js/editor.js', './js/export.js',

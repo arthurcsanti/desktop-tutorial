@@ -617,6 +617,14 @@ function setSyncLabel(text, kind) {
   $('#sync-dot').className = 'sync-dot ' + (kind || '');
   const st = $('#drive-status');
   if (st) st.textContent = text;
+  // O botão do Drive mostra a próxima ação: ligar, reconectar ou sincronizar.
+  const set = state.settings;
+  const label = !set.clientId ? 'Ligar o Drive'
+    : kind === 'busy' ? 'Sincronizando…'
+      : !drive.isConnected() ? 'Conectar Drive'
+        : 'Sincronizar';
+  $('#sync-btn-label').textContent = label;
+  $('#btn-sync').className = 'btn btn-drive ' + (kind === 'busy' ? 'is-busy' : kind === 'err' ? 'is-err' : kind === 'ok' ? 'is-ok' : drive.isConnected() ? '' : 'is-off');
 }
 
 function refreshSyncLabel() {
@@ -756,6 +764,7 @@ function bind() {
   $('#opt-client').addEventListener('change', async (e) => {
     state.settings.clientId = e.target.value.trim();
     await saveSettings();
+    refreshSyncLabel();
     if (state.settings.clientId) drive.loadGoogle().catch(() => {});
   });
   $('#btn-connect').addEventListener('click', () => { state.settings.clientId = $('#opt-client').value.trim(); connectDrive(); });

@@ -160,26 +160,40 @@ button { cursor: pointer; }
 .card-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; font-size: .74rem; color: var(--desk-muted); }
 .stamp-mini { text-transform: uppercase; letter-spacing: .08em; color: #c46b4f; }
 
-.sidebar-foot { display: flex; gap: 6px; align-items: center; border-top: 1px solid var(--desk-line); padding-top: 10px; }
-.sync {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 6px 4px;
-  background: none;
-  border: 0;
-  font-size: .78rem;
-  color: var(--desk-muted);
-  text-align: left;
-}
-.sync span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sync-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #6b5d48; }
+.sidebar-foot { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--desk-line); padding-top: 10px; }
+.sync-status { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 4px; font-size: .74rem; color: var(--desk-muted); }
+.sync-status span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sync-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #6b5d48; }
 .sync-dot.ok { background: #7d9a5b; }
 .sync-dot.warn { background: #c99a3b; }
 .sync-dot.err { background: #c2553a; }
 .sync-dot.busy { background: #c99a3b; animation: blink 1s steps(2) infinite; }
+.foot-row { display: flex; gap: 6px; align-items: center; }
+
+/* botão do Drive: o triângulo redesenhado em tinta antiga (oliva, mostarda, ardósia) */
+.btn-drive {
+  flex: 1;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--desk-line);
+  background: #2a231b;
+  color: var(--desk-ink);
+  font-family: var(--type);
+  letter-spacing: .04em;
+}
+.btn-drive:hover { border-color: var(--desk-muted); background: #312920; }
+.drive-mark { flex: none; width: 22px; height: 19px; filter: drop-shadow(1px 1px 0 rgba(0,0,0,.45)); }
+.dm-left { fill: #6d7f3f; }
+.dm-right { fill: #c19a3b; }
+.dm-bottom { fill: #4a6378; }
+.btn-drive.is-off .drive-mark { filter: grayscale(.85) brightness(.8); }
+.btn-drive.is-busy .drive-mark path { animation: drive-ink 1.2s ease-in-out infinite; }
+.btn-drive.is-busy .dm-right { animation-delay: .2s; }
+.btn-drive.is-busy .dm-bottom { animation-delay: .4s; }
+.btn-drive.is-err { border-color: #c2553a; }
+.btn-drive.is-ok::after { content: '✓'; margin-left: auto; color: #7d9a5b; font-family: var(--mono); }
+@keyframes drive-ink { 50% { opacity: .25; } }
 @keyframes blink { 50% { opacity: .2; } }
 
 /* ---------- mesa e papel ---------- */
