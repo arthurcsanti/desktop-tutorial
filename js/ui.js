@@ -42,13 +42,29 @@ export const ICONS = {
   faceid: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9v1.5M15 9v1.5M12 9v4h-1"/><path d="M9 15.5c1.6 1.3 4.4 1.3 6 0"/>',
   copy: '<rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
   share: '<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff: '<path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-2.6 3.5M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"/>',
 };
 export const icon = (name) => `<span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg></span>`;
 
 /* ---------- formatação ---------- */
 export const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-export const money = (v) => BRL.format(v);
-export const moneyShort = (v) => (Math.abs(v) >= 1000 ? `R$ ${(v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil` : money(v));
+
+// Ocultar valores: para mostrar a tela a outras pessoas sem revelar quanto você tem ou gasta.
+// Todo valor em dinheiro da tela passa por money(); as exportações usam a própria formatação.
+const MASK = 'R$ •••••';
+let valuesHidden = false;
+export const areValuesHidden = () => valuesHidden;
+export function setValuesHidden(on) {
+  valuesHidden = !!on;
+  document.body.classList.toggle('hide-values', valuesHidden);
+  try { localStorage.setItem('lastro-hide-values', valuesHidden ? '1' : '0'); } catch { /* sem storage */ }
+}
+try { if (localStorage.getItem('lastro-hide-values') === '1') setValuesHidden(true); } catch { /* sem storage */ }
+
+export const money = (v) => (valuesHidden ? MASK : BRL.format(v));
+export const moneyShort = (v) => (valuesHidden ? MASK : Math.abs(v) >= 1000 ? `R$ ${(v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil` : money(v));
 export const pct = (v) => `${Math.round(v * 100)}%`;
 export const WEEKDAYS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -79,6 +95,7 @@ export const tag = (cat) => `<span class="tag${CATS[cat]?.unknown ? ' unknown' :
 export const typeTag = (t) => (t.type === 'out' ? tag(t.cat) : `<span class="tag type-${t.type}">${TYPES[t.type]}</span>`);
 
 export function heroValue(v) {
+  if (valuesHidden) return `<div class="hero-value masked">${MASK}<span class="cents">,••</span></div>`;
   const [int, cents] = money(v).split(',');
   return `<div class="hero-value">${int}<span class="cents">,${cents}</span></div>`;
 }

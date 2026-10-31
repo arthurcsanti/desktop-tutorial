@@ -1,10 +1,10 @@
 // Guarda todos os arquivos do app no aparelho: depois da primeira abertura, funciona sem internet.
 // Ao publicar uma versão nova, troque VERSION para o iPhone baixar os arquivos atualizados.
-const VERSION = 'lastro-1.2.2';
+const VERSION = 'lastro-1.3.0';
 const FILES = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
   'js/app.js', 'js/vault.js', 'js/categorize.js', 'js/parsers.js', 'js/analysis.js', 'js/exports.js', 'js/sample.js',
-  'js/ui.js', 'js/plan.js', 'js/planviews.js', 'js/reminders.js',
+  'js/ui.js', 'js/plan.js', 'js/planviews.js', 'js/reminders.js', 'js/chartviews.js',
   'icons/logo.svg', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png',
   'vendor/pdf.min.js', 'vendor/pdf.worker.min.js', 'vendor/xlsx.full.min.js', 'vendor/mammoth.browser.min.js',
   'vendor/jspdf.umd.min.js', 'vendor/jspdf.plugin.autotable.min.js',
