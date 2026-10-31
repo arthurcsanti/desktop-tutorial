@@ -133,7 +133,8 @@ const trashFile = (id) => api(`${API}/files/${id}`, {
 
 // Sincroniza roteiros e imagens. io traz as funções do app:
 //   toMd(script) -> string, fromMd(text, {id, fallbackTitle}) -> script,
-//   fileName(script), localFiles() -> [{path, blob}], needPaths -> [paths], saveBlob(path, blob)
+//   fileName(script), localFiles() -> [{path, blob}], needPaths -> [paths], saveBlob(path, blob),
+//   configGet / configSaved / configPulled para o configuracoes.json
 // Devolve { save: [roteiros para gravar], remove: [ids para apagar] }.
 export async function sync(scripts, io) {
   const root = await ensureFolder(FOLDER_NAME);
@@ -199,6 +200,28 @@ export async function sync(scripts, io) {
       body: JSON.stringify({ appProperties: { mrId: r.id } }),
     });
     save.push(r);
+  }
+
+  // Configurações do usuário (listas personalizadas, som): um configuracoes.json legível.
+  if (io.configGet) {
+    const { data: cfg, sync: cs } = await io.configGet();
+    const f = remote.find((x) => x.appProperties?.mrConfig);
+    const body = JSON.stringify(cfg, null, 2);
+    const pushCfg = async (fileId) => {
+      const res = await upload({ fileId, name: 'configuracoes.json', parent: root, mimeType: 'application/json', appProperties: { mrConfig: '1' }, body });
+      await io.configSaved({ fileId: res.id, at: cfg.updatedAt, modified: res.modifiedTime });
+    };
+    if (!f) {
+      if (cfg.updatedAt) await pushCfg();
+    } else {
+      const remoteChanged = f.modifiedTime !== cs.modified;
+      const localChanged = cfg.updatedAt > (cs.at || 0);
+      if (localChanged && (!remoteChanged || cfg.updatedAt >= Date.parse(f.modifiedTime))) await pushCfg(f.id);
+      else if (remoteChanged) {
+        const r = JSON.parse(await downloadText(f.id));
+        await io.configPulled(r, { fileId: f.id, at: Math.max(Date.now(), r.updatedAt || 0), modified: f.modifiedTime });
+      }
+    }
   }
 
   // Imagens: envia as que faltam lá, baixa as que faltam aqui.

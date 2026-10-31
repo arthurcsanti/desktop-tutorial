@@ -1,7 +1,9 @@
 import { state, app, $, h, fill, field, toast, current, live, scripts, touch, popMenu, ask, pickFiles, fmtDate, move, uid, autosize, isoDate } from './core.js';
-import { TEMPLATES, STATUSES, TAB_TYPES, TAB_PRESETS, PLATFORMS, OBJECTIVES, CAMPAIGN_STATUSES, buildScript, makeTab, migrate } from './model.js';
+import { TEMPLATES, STATUSES, TAB_TYPES, TAB_PRESETS, PLATFORMS, OBJECTIVES, CAMPAIGN_STATUSES, buildScript, makeTab, migrate, withCurrent } from './model.js';
 import { scriptToMd, mdToScript, attachmentsIn } from './markdown.js';
-import { img, saveImage, putDownloaded } from './files.js';
+import { img, saveImage, putDownloaded, getBlob } from './files.js';
+import { config, applyConfig, snapshot as configSnapshot, configFiles } from './config.js';
+import { configView } from './views/config.js';
 import { pageEditor } from './editor.js';
 import { roteiroView, narrationText } from './views/roteiro.js';
 import { moodboardView } from './views/moodboard.js';
@@ -55,10 +57,46 @@ app.saveUi = () => db.setMeta('ui', { library: state.library }).catch(() => {});
 // ---------- som de máquina ----------
 
 let audio;
-function clack(kind) {
-  if (!state.settings.sound) return;
+// Som personalizado: arquivos enviados nas Configurações, decodificados uma vez.
+const soundBuffers = new Map();
+app.reloadSounds = () => soundBuffers.clear();
+async function soundBuffer(path) {
+  if (!path) return null;
+  if (soundBuffers.has(path)) return soundBuffers.get(path);
+  const p = (async () => {
+    const blob = await getBlob(path);
+    if (!blob) return null;
+    audio ||= new (window.AudioContext || window.webkitAudioContext)();
+    return audio.decodeAudioData(await blob.arrayBuffer());
+  })().catch(() => null);
+  soundBuffers.set(path, p);
+  return p;
+}
+
+function playFile(kind) {
+  const s = config.sound;
+  const path = kind === 'return' && s.ret ? s.ret : s.key;
+  soundBuffer(path).then((buf) => {
+    if (!buf) return;
+    const src = audio.createBufferSource();
+    src.buffer = buf;
+    // pequena variação de tom, para não soar como a mesma tecla repetida
+    src.playbackRate.value = 0.94 + Math.random() * 0.12;
+    const g = audio.createGain();
+    g.gain.value = s.volume ?? 0.7;
+    src.connect(g).connect(audio.destination);
+    src.start();
+  });
+}
+
+app.playKey = (kind, force) => clack(kind === 'key' ? 'key' : kind, force);
+
+function clack(kind, force) {
+  if (!state.settings.sound && !force) return;
   try {
     audio ||= new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+    if (config.sound.mode === 'arquivo' && config.sound.key) return playFile(kind);
     const len = kind === 'return' ? 0.09 : 0.03;
     const buf = audio.createBuffer(1, Math.floor(audio.sampleRate * len), audio.sampleRate);
     const d = buf.getChannelData(0);
@@ -69,7 +107,7 @@ function clack(kind) {
     f.type = 'bandpass';
     f.frequency.value = kind === 'return' ? 700 : 1500 + Math.random() * 900;
     const g = audio.createGain();
-    g.gain.value = kind === 'return' ? 0.8 : 0.45;
+    g.gain.value = (kind === 'return' ? 0.8 : 0.45) * ((config.sound.volume ?? 0.7) / 0.7);
     src.connect(f).connect(g).connect(audio.destination);
     src.start();
   } catch {}
@@ -190,6 +228,7 @@ function renderNav() {
     tags.length ? h('div', { class: 'nav-label' }, 'Tags') : null,
     tags.length ? h('div', { class: 'nav-chips' }, tags.map((t) => h('button', { type: 'button', class: 'tag' + (isOn('tag', t) ? ' active' : ''), onClick: () => setFilter({ type: 'tag', value: t }) }, '#' + t))) : null,
     item('Lixeira', { type: 'trash' }, live().filter((s) => s.deleted).length),
+    h('button', { type: 'button', class: 'nav-item nav-config' + (state.view === 'config' ? ' active' : ''), onClick: () => app.showConfig() }, h('span', null, '⚙ Configurações')),
   );
 }
 
@@ -232,6 +271,11 @@ const setDrawer = (open) => $('#app').classList.toggle('drawer-open', open);
 app.renderTop = () => {
   const s = current();
   const crumbHome = h('button', { type: 'button', class: 'crumb-link', onClick: () => app.showLibrary() }, 'Arquivo');
+  if (state.view === 'config') {
+    fill($('#crumb'), h('span', null, 'Configurações'));
+    fill($('#top-actions'));
+    return;
+  }
   if (state.view === 'planner') {
     fill($('#crumb'), h('span', null, 'Planejamento'));
     fill($('#top-actions'));
@@ -283,7 +327,7 @@ let currentPage = null;
 function renderProps(s) {
   const folders = [...new Set(live().map((x) => x.folder).filter(Boolean))];
   const tpl = TEMPLATES.find((t) => t.id === s.template);
-  const statusSel = h('select', { class: 'prop-val', onChange: () => { s.status = statusSel.value; touch(s); } }, STATUSES.map((st) => h('option', { value: st }, st)));
+  const statusSel = h('select', { class: 'prop-val', onChange: () => { s.status = statusSel.value; touch(s); } }, withCurrent(STATUSES, s.status).map((st) => h('option', { value: st }, st)));
   statusSel.value = s.status;
   return h('div', { class: 'props' },
     h('label', { class: 'prop' }, h('span', { class: 'prop-key' }, 'Pasta'),
@@ -448,13 +492,13 @@ function renameCampaign(oldTitle, newTitle) {
 function campaignProps(s) {
   const c = s.campaign;
   const sel = (options, value, onChange) => {
-    const el = h('select', { class: 'prop-val', onChange: () => onChange(el.value) }, options.map((o) => h('option', { value: o }, o)));
+    const el = h('select', { class: 'prop-val', onChange: () => onChange(el.value) }, withCurrent(options, value).map((o) => h('option', { value: o }, o)));
     el.value = value;
     return el;
   };
   const save = () => touch(s, { list: false });
   return h('div', { class: 'props' },
-    h('label', { class: 'prop' }, h('span', { class: 'prop-key' }, 'Objetivo'), sel(OBJECTIVES.includes(c.objetivo) ? OBJECTIVES : [c.objetivo, ...OBJECTIVES], c.objetivo, (v) => { c.objetivo = v; save(); })),
+    h('label', { class: 'prop' }, h('span', { class: 'prop-key' }, 'Objetivo'), sel(OBJECTIVES, c.objetivo, (v) => { c.objetivo = v; save(); })),
     h('label', { class: 'prop' }, h('span', { class: 'prop-key' }, 'Status'), sel(CAMPAIGN_STATUSES, s.status, (v) => { s.status = v; save(); })),
     h('label', { class: 'prop' }, h('span', { class: 'prop-key' }, 'Início'), field('input', c.inicio, (v) => { c.inicio = v; save(); }, { type: 'date', class: 'prop-val' })),
     h('label', { class: 'prop' }, h('span', { class: 'prop-key' }, 'Fim'), field('input', c.fim, (v) => { c.fim = v; save(); }, { type: 'date', class: 'prop-val' })),
@@ -471,6 +515,23 @@ function campaignProps(s) {
 }
 
 // ---------- navegação ----------
+
+app.showConfig = () => {
+  currentPage?._destroy?.();
+  currentPage = null;
+  state.view = 'config';
+  app.renderSidebar();
+  app.renderTop();
+  fill($('#editor'), configView());
+  setDrawer(false);
+};
+
+app.saveConfig = async () => {
+  await db.setMeta('config', configSnapshot());
+  app.scheduleSync();
+};
+
+app.driveConnected = () => drive.isConnected();
 
 app.showPlanner = (mode, date) => {
   currentPage?._destroy?.();
@@ -659,9 +720,20 @@ const driveIO = {
   fromMd: (text, opts) => mdToScript(text, opts),
   fileName,
   localFiles: async () => (await db.allFiles()).map((f) => ({ path: f.path, blob: f.blob })),
-  needPaths: (scripts) => [...new Set(scripts.filter((s) => !s.purged).flatMap(attachmentsIn))],
+  needPaths: (scripts) => [...new Set([...scripts.filter((s) => !s.purged).flatMap(attachmentsIn), ...configFiles()])],
   saveBlob: putDownloaded,
+  // configurações: configuracoes.json na pasta do app
+  configGet: async () => ({ data: configSnapshot(), sync: (await db.getMeta('configSync')) || {} }),
+  configSaved: (sync) => db.setMeta('configSync', sync),
+  configPulled: async (remote, sync) => {
+    applyConfig(remote);
+    await db.setMeta('config', configSnapshot());
+    await db.setMeta('configSync', sync);
+    app.reloadSounds();
+    configChangedRemotely = true;
+  },
 };
+let configChangedRemotely = false;
 
 async function syncNow() {
   if (state.syncing || !drive.isConnected() || !navigator.onLine) return refreshSyncLabel();
@@ -692,7 +764,11 @@ async function syncNow() {
     await saveSettings();
     app.renderSidebar();
     const typing = document.activeElement?.closest?.('#editor');
-    if (currentChanged && !typing) (state.view === 'script' ? app.renderEditor : app.showLibrary)();
+    if (configChangedRemotely && !typing) {
+      configChangedRemotely = false;
+      currentChanged = true;
+    }
+    if (currentChanged && !typing) ({ script: app.renderEditor, planner: () => app.showPlanner(), config: app.showConfig }[state.view] || app.showLibrary)();
     refreshSyncLabel();
   } catch (e) {
     setSyncLabel('Erro ao sincronizar: ' + e.message, 'err');
@@ -742,9 +818,20 @@ function renderTemplates() {
 
 // ---------- início ----------
 
+// Altura real do topo (no iPhone ela inclui a área do relógio): as abas fixas ficam logo abaixo.
+function trackTopbar() {
+  const bar = document.querySelector('.topbar');
+  const set = () => document.documentElement.style.setProperty('--top-h', bar.offsetHeight + 'px');
+  set();
+  if ('ResizeObserver' in window) new ResizeObserver(set).observe(bar);
+  window.addEventListener('resize', set);
+}
+
 function bind() {
+  trackTopbar();
   $('#btn-new').addEventListener('click', () => $('#dlg-new').showModal());
   $('#btn-settings').addEventListener('click', openSettings);
+  $('#btn-open-config').addEventListener('click', () => { $('#dlg-settings').close(); app.showConfig(); });
   $('#btn-menu').addEventListener('click', () => setDrawer(!$('#app').classList.contains('drawer-open')));
   $('#scrim').addEventListener('click', () => setDrawer(false));
   $('#search').addEventListener('input', (e) => {
@@ -815,6 +902,7 @@ async function init() {
   renderTemplates();
   let lastOpen = null;
   try {
+    applyConfig(await db.getMeta('config'));
     const saved = await db.getMeta('settings');
     if (saved) Object.assign(state.settings, saved);
     const ui = await db.getMeta('ui');

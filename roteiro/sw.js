@@ -1,11 +1,11 @@
 // Guarda o app no aparelho para abrir e escrever mesmo sem internet.
-const CACHE = 'maquina-de-roteiro-v5';
+const CACHE = 'maquina-de-roteiro-v6';
 const SHELL = [
   './', './index.html', './css/style.css', './manifest.webmanifest',
   './js/app.js', './js/core.js', './js/db.js', './js/drive.js', './js/editor.js', './js/export.js',
   './js/files.js', './js/markdown.js', './js/model.js', './js/zip.js',
   './js/views/library.js', './js/views/moodboard.js', './js/views/referencias.js', './js/views/roteiro.js', './js/views/tabela.js',
-  './js/views/planner.js', './js/views/publicacoes.js',
+  './js/views/planner.js', './js/views/publicacoes.js', './js/views/config.js', './js/config.js',
   './fonts/fonts.css', './fonts/courier-prime-400.woff2', './fonts/courier-prime-400-italic.woff2', './fonts/courier-prime-700.woff2', './fonts/special-elite-400.woff2',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
 ];
