@@ -12,7 +12,8 @@ import { tabelaView } from './views/tabela.js';
 import { libraryView } from './views/library.js';
 import { publicacoesView } from './views/publicacoes.js';
 import { plannerView, campaignPanel, newCampaign, allPosts } from './views/planner.js';
-import { exportMd, exportTxt, exportZip, importFiles, printScript, fileName } from './export.js';
+import { exportMd, exportTxt, exportZip, importFiles, printScript, fileName, folderParts } from './export.js';
+import { IMPORT_EXT } from './importers.js';
 import * as db from './db.js';
 import * as drive from './drive.js';
 
@@ -290,12 +291,14 @@ app.renderTop = () => {
   }
   if (state.view !== 'script' || !s) {
     fill($('#crumb'), crumbHome, h('span', null, ' / ' + filterTitle()));
-    fill($('#top-actions'), h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => $('#dlg-new').showModal() }, '+ Novo'));
+    fill($('#top-actions'),
+      h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => app.openImport() }, '⇪ Importar'),
+      h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => $('#dlg-new').showModal() }, '+ Novo'));
     return;
   }
   fill($('#crumb'),
     crumbHome,
-    s.folder ? h('button', { type: 'button', class: 'crumb-link', onClick: () => setFilter({ type: 'folder', value: s.folder }) }, ' / ' + s.folder) : null,
+    s.folder ? [h('span', { class: 'crumb-sep' }, ' / '), h('button', { type: 'button', class: 'crumb-link', onClick: () => setFilter({ type: 'folder', value: s.folder }) }, s.folder)] : null,
     h('span', null, ' / ' + (s.title || 'Sem título')));
   const btn = (label, title, onClick, cls = '') => h('button', { type: 'button', class: 'btn btn-ghost ' + cls, title, 'aria-label': title, onClick }, label);
   fill($('#top-actions'),
@@ -648,27 +651,79 @@ function openExport() {
   $('#dlg-export').showModal();
 }
 
-async function importPicked(files) {
-  if (!files.length) return;
+// ---------- área de importação ----------
+
+let importQueue = [];
+const IMPORTABLE = (f) => IMPORT_EXT.test(f.name) || /\.(zip|json|doc)$/i.test(f.name);
+
+function renderImportQueue() {
+  fill($('#import-queue'), importQueue.map((f, i) => h('li', null,
+    h('span', { class: 'iq-ext' }, (f.name.split('.').pop() || '').toUpperCase()),
+    h('span', { class: 'iq-name' }, f.name),
+    h('button', { type: 'button', class: 'btn btn-ghost btn-mini', 'aria-label': 'Tirar da lista', onClick: () => { importQueue.splice(i, 1); renderImportQueue(); } }, '✕'))));
+  $('#btn-do-import').disabled = !importQueue.length;
+  $('#btn-do-import').textContent = importQueue.length > 1 ? `Importar ${importQueue.length} arquivos` : 'Importar';
+}
+
+function queueFiles(files) {
+  const ok = [...files].filter(IMPORTABLE);
+  if (ok.length < files.length) toast('Alguns arquivos foram ignorados: use .docx, .odt, .txt, .md, .html, .zip ou .json.');
+  importQueue.push(...ok.filter((f) => !importQueue.some((q) => q.name === f.name && q.size === f.size)));
+  renderImportQueue();
+}
+
+app.openImport = (files = []) => {
+  importQueue = [];
+  fill($('#import-template'), TEMPLATES.map((t) => h('option', { value: t.id }, t.name)));
+  fill($('#import-folders'), [...new Set(live().map((x) => x.folder).filter(Boolean))].map((f) => h('option', { value: f })));
+  $('#import-folder').value = state.filter.type === 'folder' ? state.filter.value : '';
+  fill($('#import-report'));
+  queueFiles(files);
+  if (!$('#dlg-import').open) $('#dlg-import').showModal();
+};
+
+async function runImport() {
+  if (!importQueue.length) return;
+  const opts = {
+    mode: $('#dlg-import').querySelector('input[name="import-mode"]:checked')?.value || 'detectar',
+    template: $('#import-template').value,
+    folder: $('#import-folder').value.trim().replace(/^\/+|\/+$/g, ''),
+  };
+  $('#btn-do-import').disabled = true;
+  $('#btn-do-import').textContent = 'Importando…';
+  const { report, added } = await importPicked(importQueue, opts);
+  importQueue = [];
+  renderImportQueue();
+  fill($('#import-report'), h('ul', { class: 'import-report' }, report.map((r) => h('li', { class: r.error ? 'err' : 'ok' },
+    h('b', null, r.error ? '✕ ' : '✓ ', r.title || r.file),
+    h('span', { class: 'muted small' }, r.error ? ` — ${r.error}` : ` — ${r.summary}`),
+    r.id && added.has(r.id) ? h('button', { type: 'button', class: 'btn btn-mini', onClick: () => { $('#dlg-import').close(); app.openScript(r.id); } }, 'Abrir') : null))));
+}
+
+async function importPicked(files, opts = {}) {
+  const added = new Set();
+  let report = [];
+  if (!files.length) return { report, added };
   try {
-    const items = await importFiles(files);
-    if (!items.length) return toast('Não encontrei roteiros nesses arquivos.');
-    let n = 0;
-    for (const s of items) {
+    const res = await importFiles(files, opts);
+    report = res.report;
+    for (const s of res.scripts) {
       const local = state.scripts.get(s.id);
       if (local && local.updatedAt >= s.updatedAt) continue;
       if (local?._sync) s._sync = local._sync;
       state.scripts.set(s.id, s);
       await db.putScript(s);
-      n++;
+      added.add(s.id);
     }
     app.renderSidebar();
     if (state.view === 'library') app.showLibrary();
-    toast(n ? `${n} roteiro(s) importado(s).` : 'Os roteiros desses arquivos já estavam atualizados aqui.');
+    const failed = report.filter((r) => r.error).length;
+    toast(added.size ? `${added.size} roteiro(s) importado(s)${failed ? `, ${failed} com erro` : ''}.` : failed ? 'Não consegui importar esses arquivos.' : 'Os roteiros desses arquivos já estavam atualizados aqui.');
     app.scheduleSync();
   } catch (e) {
     toast('Não consegui ler o arquivo: ' + e.message);
   }
+  return { report, added };
 }
 
 // ---------- nuvem ----------
@@ -719,6 +774,7 @@ const driveIO = {
   toMd: scriptToMd,
   fromMd: (text, opts) => mdToScript(text, opts),
   fileName,
+  folderPath: folderParts,
   localFiles: async () => (await db.allFiles()).map((f) => ({ path: f.path, blob: f.blob })),
   needPaths: (scripts) => [...new Set([...scripts.filter((s) => !s.purged).flatMap(attachmentsIn), ...configFiles()])],
   saveBlob: putDownloaded,
@@ -863,7 +919,25 @@ function bind() {
     refreshSyncLabel();
   });
   $('#btn-backup').addEventListener('click', () => exportZip(live().filter((s) => !s.deleted), `maquina-de-roteiro-${new Date().toISOString().slice(0, 10)}.zip`));
-  $('#file-import').addEventListener('change', (e) => { importPicked([...e.target.files]); e.target.value = ''; });
+  $('#btn-settings-import').addEventListener('click', () => { $('#dlg-settings').close(); app.openImport(); });
+  $('#btn-import').addEventListener('click', () => app.openImport());
+  $('#import-input').addEventListener('change', (e) => { queueFiles([...e.target.files]); e.target.value = ''; });
+  $('#btn-do-import').addEventListener('click', runImport);
+  const dz = $('#drop-import');
+  dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); dz.classList.remove('over'); queueFiles([...e.dataTransfer.files]); });
+  // Soltar documentos em qualquer lugar do app abre a importação (o moodboard e as páginas tratam as imagens).
+  window.addEventListener('dragover', (e) => {
+    if (e.dataTransfer?.types?.includes('Files') && !e.target.closest?.('.moodboard, .page, .dropzone')) e.preventDefault();
+  });
+  window.addEventListener('drop', (e) => {
+    if (e.defaultPrevented && e.target.closest?.('.moodboard, .page, .dropzone')) return;
+    const files = [...(e.dataTransfer?.files || [])].filter(IMPORTABLE);
+    if (!files.length) return;
+    e.preventDefault();
+    app.openImport(files);
+  });
 
   // Colar imagens direto no moodboard.
   document.addEventListener('paste', async (e) => {

@@ -64,7 +64,7 @@ export function splitRow(line) {
   return cells.map((c) => c.trim().replace(/<br\s*\/?>/gi, '\n'));
 }
 
-const isSepRow = (line) => /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(line.trim());
+const isSepRow = (line) => /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(line.trim());
 const cellMd = (v) => String(v ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>').trim();
 
 export function tableToMd(rows) {

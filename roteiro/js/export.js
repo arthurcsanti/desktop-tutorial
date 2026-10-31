@@ -6,6 +6,7 @@ import { scriptToMd, mdToScript, parseBlocks, inline, plain, attachmentsIn } fro
 import { migrate } from './model.js';
 import { img, getBlob, putDownloaded } from './files.js';
 import { makeZip, readZip } from './zip.js';
+import { importDocument, IMPORT_EXT } from './importers.js';
 
 export const fileName = (s) => safeName(s.title) + '.md';
 
@@ -17,13 +18,19 @@ export function exportTxt(s) {
   download(safeName(s.title) + '.txt', plain(scriptToMd(s)), 'text/plain');
 }
 
-async function zipEntries(scripts) {
+// Pasta de cada roteiro no pacote (a mesma organização do Drive).
+export const folderParts = (s) => (s.deleted ? ['Lixeira']
+  : s.kind === 'campanha' ? ['Campanhas']
+    : ['Roteiros', ...(s.folder || '').split('/').map((x) => x.trim()).filter(Boolean)]);
+
+async function zipEntries(scripts, { folders = false } = {}) {
   const entries = [];
   const names = new Set();
   const paths = new Set();
   for (const s of scripts) {
-    let name = fileName(s);
-    for (let i = 2; names.has(name); i++) name = `${safeName(s.title)} (${i}).md`;
+    const dir = folders ? folderParts(s).map((x) => safeName(x)).join('/') + '/' : '';
+    let name = dir + fileName(s);
+    for (let i = 2; names.has(name); i++) name = `${dir}${safeName(s.title)} (${i}).md`;
     names.add(name);
     entries.push({ name, data: scriptToMd(s) });
     attachmentsIn(s).forEach((p) => paths.add(p));
@@ -36,7 +43,7 @@ async function zipEntries(scripts) {
 }
 
 export async function exportZip(scripts, name) {
-  download(name, await makeZip(await zipEntries(scripts)), 'application/zip');
+  download(name, await makeZip(await zipEntries(scripts, { folders: scripts.length > 1 })), 'application/zip');
 }
 
 // ---------- importar ----------
@@ -44,30 +51,50 @@ export async function exportZip(scripts, name) {
 const isScriptJson = (x) => x && typeof x.id === 'string' && (Array.isArray(x.tabs) || Array.isArray(x.sections));
 
 // Devolve os roteiros lidos (ainda não gravados) e grava as imagens que vierem junto.
-export async function importFiles(files) {
+// Lê arquivos do app (.md, .zip, .json) e documentos de outros apps (Word, .odt, .txt, .html, Markdown comum).
+// opts: { mode, template, folder } — o modelo de importação para documentos de fora.
+// Devolve { scripts, report: [{ file, title?, summary?, error? }] }.
+export async function importFiles(files, opts = {}) {
   const scripts = [];
+  const report = [];
   const dec = new TextDecoder();
   const readMd = (text, name) => mdToScript(text, { fallbackTitle: name.replace(/^.*\//, '').replace(/\.(md|markdown|txt)$/i, '') });
+  const add = (s) => { if (opts.folder && !s.folder) s.folder = opts.folder; scripts.push(s); };
   for (const f of files) {
-    const name = f.name || '';
-    if (/\.zip$/i.test(name)) {
-      for (const e of await readZip(f)) {
-        if (/\.(md|markdown)$/i.test(e.name) && !e.name.startsWith('__MACOSX')) scripts.push(readMd(dec.decode(e.data), e.name));
-        else if (/\.(jpe?g|png|gif|webp|svg)$/i.test(e.name)) {
-          const base = e.name.replace(/^.*\//, '');
-          const type = 'image/' + base.split('.').pop().toLowerCase().replace('jpg', 'jpeg').replace('svg', 'svg+xml');
-          await putDownloaded('anexos/' + base, new Blob([e.data], { type }));
+    const name = f.name || 'arquivo';
+    try {
+      if (/\.zip$/i.test(name)) {
+        let n = 0;
+        for (const e of await readZip(f)) {
+          if (/\.(md|markdown)$/i.test(e.name) && !e.name.startsWith('__MACOSX')) { add(readMd(dec.decode(e.data), e.name)); n++; }
+          else if (/\.(jpe?g|png|gif|webp|svg)$/i.test(e.name)) {
+            const base = e.name.replace(/^.*\//, '');
+            const type = 'image/' + base.split('.').pop().toLowerCase().replace('jpg', 'jpeg').replace('svg', 'svg+xml');
+            await putDownloaded('anexos/' + base, new Blob([e.data], { type }));
+          }
         }
+        report.push({ file: name, summary: `${n} roteiro(s) do pacote` });
+      } else if (/\.json$/i.test(name)) {
+        const data = JSON.parse(await f.text());
+        const items = (Array.isArray(data) ? data : data.scripts || [data]).filter(isScriptJson).map(migrate);
+        items.forEach(add);
+        report.push({ file: name, summary: `${items.length} roteiro(s) da cópia de segurança` });
+      } else if (/\.(md|markdown)$/i.test(name) && /<!--\s*aba:/.test(await f.text())) {
+        const s = readMd(await f.text(), name);
+        add(s);
+        report.push({ file: name, title: s.title, id: s.id, summary: 'roteiro no formato do app' });
+      } else if (IMPORT_EXT.test(name) || /\.doc$/i.test(name)) {
+        const { script, summary } = await importDocument(f, opts);
+        add(script);
+        report.push({ file: name, title: script.title, id: script.id, summary });
+      } else {
+        report.push({ file: name, error: 'Formato não suportado. Use .docx, .odt, .txt, .md, .html, .zip ou .json.' });
       }
-    } else if (/\.json$/i.test(name)) {
-      const data = JSON.parse(await f.text());
-      const items = Array.isArray(data) ? data : data.scripts || [data];
-      scripts.push(...items.filter(isScriptJson).map(migrate));
-    } else {
-      scripts.push(readMd(await f.text(), name));
+    } catch (e) {
+      report.push({ file: name, error: e.message });
     }
   }
-  return scripts;
+  return { scripts, report };
 }
 
 // ---------- PDF (impressão) ----------

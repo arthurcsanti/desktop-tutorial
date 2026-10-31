@@ -1,7 +1,9 @@
 // Sincronização com o Google Drive.
 // Pasta "Máquina de Roteiro" no Drive do usuário:
-//   Título do roteiro.md   <- um arquivo Markdown por roteiro (abre no Obsidian)
-//   anexos/abc123.jpg      <- imagens usadas nos roteiros
+//   Roteiros/<pasta>/Título.md <- um arquivo Markdown por roteiro, na pasta da sua classificação
+//   Campanhas/, Lixeira/        <- campanhas e roteiros na lixeira
+//   anexos/abc123.jpg           <- imagens e sons usados nos roteiros
+//   configuracoes.json          <- listas personalizadas
 // O escopo drive.file só dá acesso aos arquivos criados pelo próprio app.
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
@@ -105,7 +107,42 @@ async function listIn(parent) {
   return files;
 }
 
-async function upload({ fileId, name, parent, mimeType, appProperties, body }) {
+// Todos os arquivos que o app criou, em qualquer subpasta (o escopo drive.file só mostra esses).
+async function listAll() {
+  const query = `trashed=false and mimeType!='${FOLDER_MIME}'`;
+  const files = [];
+  let pageToken = '';
+  do {
+    const res = await api(
+      `${API}/files?q=${encodeURIComponent(query)}&pageSize=1000&fields=nextPageToken,files(id,name,modifiedTime,appProperties,parents)` +
+        (pageToken ? `&pageToken=${pageToken}` : ''),
+    );
+    const data = await res.json();
+    files.push(...data.files);
+    pageToken = data.nextPageToken || '';
+  } while (pageToken);
+  return files;
+}
+
+// Garante a sequência de pastas (ex.: Roteiros/Canal/Série 1) e devolve o id da última.
+async function ensurePath(root, parts) {
+  let parent = root;
+  for (const part of parts) parent = await ensureFolder(part.replace(/[\\/]+/g, '-').slice(0, 120), parent);
+  return parent;
+}
+
+// Move um arquivo para outra pasta sem mexer no conteúdo.
+async function moveFile(f, dest) {
+  const remove = (f.parents || []).filter((p) => p !== dest).join(',');
+  const res = await api(`${API}/files/${f.id}?addParents=${dest}${remove ? `&removeParents=${remove}` : ''}&fields=id,modifiedTime,parents`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  });
+  return res.json();
+}
+
+async function upload({ fileId, name, parent, mimeType, appProperties, body, move }) {
   const metadata = { name, mimeType, appProperties };
   if (!fileId) metadata.parents = [parent];
   const boundary = 'mr' + Math.random().toString(36).slice(2);
@@ -115,7 +152,8 @@ async function upload({ fileId, name, parent, mimeType, appProperties, body }) {
     body,
     `\r\n--${boundary}--`,
   ]);
-  const res = await api(`${UPLOAD}/files${fileId ? '/' + fileId : ''}?uploadType=multipart&fields=id,modifiedTime`, {
+  const moveQs = move ? `&addParents=${move.add}${move.remove ? `&removeParents=${move.remove}` : ''}` : '';
+  const res = await api(`${UPLOAD}/files${fileId ? '/' + fileId : ''}?uploadType=multipart&fields=id,modifiedTime${moveQs}`, {
     method: fileId ? 'PATCH' : 'POST',
     headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
     body: multipart,
@@ -138,14 +176,23 @@ const trashFile = (id) => api(`${API}/files/${id}`, {
 // Devolve { save: [roteiros para gravar], remove: [ids para apagar] }.
 export async function sync(scripts, io) {
   const root = await ensureFolder(FOLDER_NAME);
-  const remote = await listIn(root);
+  const remote = await listAll();
   const byId = new Map();
   const unknown = [];
   for (const f of remote) {
     const id = f.appProperties?.mrId;
     if (id) byId.set(id, f);
-    else if (/\.(md|markdown)$/i.test(f.name)) unknown.push(f);
+    else if (/\.(md|markdown)$/i.test(f.name) && (f.parents || []).includes(root)) unknown.push(f);
   }
+  // Cada roteiro mora na pasta da sua classificação: Roteiros/<pasta>, Campanhas ou Lixeira.
+  const destOf = (s) => ensurePath(root, io.folderPath ? io.folderPath(s) : []);
+  const place = async (s, f) => {
+    const dest = await destOf(s);
+    if ((f.parents || []).includes(dest)) return;
+    const res = await moveFile(f, dest);
+    if (s._sync) s._sync.modified = res.modifiedTime;
+    if (!save.includes(s)) save.push(s);
+  };
   const save = [];
   const remove = [];
 
@@ -158,12 +205,15 @@ export async function sync(scripts, io) {
     return r;
   };
 
-  const push = async (s, fileId) => {
+  const push = async (s, f) => {
     const at = s.updatedAt;
+    const dest = await destOf(s);
+    const misplaced = f && !(f.parents || []).includes(dest);
     const res = await upload({
-      fileId,
+      fileId: f?.id,
       name: io.fileName(s),
-      parent: root,
+      parent: dest,
+      move: misplaced ? { add: dest, remove: (f.parents || []).join(',') } : null,
       mimeType: 'text/markdown',
       appProperties: { mrId: s.id },
       body: io.toMd(s),
@@ -188,10 +238,11 @@ export async function sync(scripts, io) {
     }
     const remoteChanged = f.modifiedTime !== meta.modified;
     const localChanged = s.updatedAt > (meta.at || 0);
-    if (localChanged && (!remoteChanged || s.updatedAt >= Date.parse(f.modifiedTime))) await push(s, f.id);
-    else if (remoteChanged) save.push(await pull(f, s.id));
+    if (localChanged && (!remoteChanged || s.updatedAt >= Date.parse(f.modifiedTime))) await push(s, f);
+    else if (remoteChanged) { const r = await pull(f, s.id); save.push(r); await place(r, f); }
+    else await place(s, f); // sem mudanças: só confere se está na pasta certa
   }
-  for (const f of byId.values()) save.push(await pull(f, f.appProperties.mrId));
+  for (const f of byId.values()) { const r = await pull(f, f.appProperties.mrId); save.push(r); await place(r, f); }
   for (const f of unknown) {
     const r = await pull(f);
     await api(`${API}/files/${f.id}`, {
@@ -200,6 +251,7 @@ export async function sync(scripts, io) {
       body: JSON.stringify({ appProperties: { mrId: r.id } }),
     });
     save.push(r);
+    await place(r, f);
   }
 
   // Configurações do usuário (listas personalizadas, som): um configuracoes.json legível.

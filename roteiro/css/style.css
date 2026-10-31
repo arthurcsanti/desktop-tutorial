@@ -224,6 +224,7 @@ button { cursor: pointer; }
 }
 .crumb { flex: 1; min-width: 0; font-size: .85rem; color: var(--desk-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .crumb span:last-child { color: var(--desk-ink); }
+.crumb .crumb-sep { color: var(--desk-muted); white-space: pre; }
 .top-actions { display: flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
 .btn-menu { display: none; }
 
@@ -857,6 +858,30 @@ th:hover > .grid-x, tr:hover .grid-tools .grid-x, .grid-x:focus { opacity: 1; }
 .paper .cfg-file input[type=range] { width: 180px; accent-color: var(--ribbon); }
 .nav-config { margin-top: 8px; border-top: 1px solid var(--desk-line); padding-top: 10px; }
 
+/* ---------- importação ---------- */
+
+.btn-import { width: 100%; padding: 8px; border: 1px dashed var(--desk-line); color: var(--desk-muted); font-size: .85rem; }
+.btn-import:hover { color: var(--desk-ink); border-color: var(--desk-muted); }
+.dropzone {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  margin-top: 14px; padding: 26px 16px; text-align: center; cursor: pointer;
+  border: 2px dashed var(--ink-faint); background: rgba(255, 245, 220, .12);
+}
+.dropzone:hover, .dropzone.over { border-color: var(--ribbon); background: color-mix(in srgb, var(--ribbon) 8%, transparent); }
+.dz-title { font-family: var(--type); font-size: 1.15rem; }
+.import-queue { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; }
+.import-queue li { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 4px 6px; border-bottom: 1px dotted var(--rule); }
+.iq-ext { font-family: var(--type); font-size: .7rem; letter-spacing: .08em; text-align: center; border: 1.5px solid var(--ink-soft); padding: 1px 2px; transform: rotate(-2deg); }
+.iq-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; }
+.import-mode { align-items: flex-start; gap: 10px; margin: 8px 0; cursor: pointer; }
+.import-mode input { margin-top: 4px; accent-color: var(--ribbon); }
+.grid-import { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid-import select { display: block; width: 100%; margin-top: 4px; padding: 8px; background: var(--field-bg); border: 1px solid var(--rule); font-family: var(--mono); }
+.import-report { list-style: none; margin: 14px 0 0; padding: 10px 0 0; border-top: 1px solid var(--ink); display: grid; gap: 6px; }
+.import-report li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.import-report li.err b { color: var(--ribbon); }
+.import-report .btn { margin-left: auto; }
+
 /* ---------- botões ---------- */
 
 .btn {
@@ -1131,6 +1156,7 @@ img.img-missing { min-height: 80px; background: repeating-linear-gradient(45deg,
   .l-row .l-meta { display: none; }
   .gallery { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
   .lib-title { font-size: 1.4rem; }
+  .grid-import { grid-template-columns: 1fr; }
   .cfg-pf-top { grid-template-columns: 34px auto minmax(0, 1fr) 56px; }
   .cfg-pf-top .btn-mini { grid-row: 2; }
   .cfg-legend { grid-template-columns: 1fr 1fr auto auto; }
