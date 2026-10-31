@@ -81,6 +81,20 @@ O mesmo app roda no **Android, iPhone, iPad, Windows e Mac**. Funciona sem inter
 ### Estruturas prontas
 YouTube em 3 atos (o seu modelo do Google Docs), Vlog, Tutorial, Short/Reels/TikTok, Mini-documentário, Review, Podcast/Entrevista e Folha em branco. Cada uma já vem com Ficha, Roteiro, Moodboard, Referências, Texto corrido, Produção e Plano de gravação.
 
+### Importar de outros apps
+- Abra a área de importação pelo botão **⇪ Importar arquivos** na barra lateral, pelo **⇪ Importar** no topo do arquivo, por Ajustes, ou **soltando os arquivos em qualquer lugar do app**.
+- **Formatos:** Word (`.docx`, inclusive Google Docs baixado como .docx), LibreOffice (`.odt`), `.txt`, `.md`, `.html`, `.zip` e `.json`. O `.doc` antigo não é lido; salve como .docx.
+- **Modelos de importação:**
+  - **Detectar a estrutura do roteiro:** cada parte vai para a sua aba.
+    - A capa e a tabela da ficha vão para a Ficha.
+    - A tabela de cenas (CENA · NARRAÇÃO · VISUAL), inclusive com células mescladas, vira a aba Roteiro, com seções e cenas.
+    - As notas de produção e o histórico de versões vão para Produção.
+    - O texto integral vai para Texto corrido.
+    - Outros títulos viram páginas.
+  - **Como página de texto:** o documento inteiro numa aba, com a formatação.
+  - **Como texto corrido:** só o texto, na aba Texto corrido.
+- Também dá para escolher a estrutura base do roteiro e a pasta de destino.
+
 ### Exportar e importar
 - **`.md`:** o formato oficial, que abre no Obsidian, no Notion, no VS Code, no Typora…
 - **Pacote para o Obsidian (`.zip`):** o `.md` e a pasta `anexos/` com as imagens. Basta descompactar dentro do cofre do Obsidian.
@@ -101,14 +115,21 @@ YouTube em 3 atos (o seu modelo do Google Docs), Vlog, Tutorial, Short/Reels/Tik
 
 ```text
 Máquina de Roteiro/              (pasta no Google Drive)
-├── Como consertei uma máquina.md
-├── Um dia na feira.md
-├── Lançamento da série.md       (campanha)
-├── configuracoes.json           (suas listas personalizadas e som)
-└── anexos/
-    ├── 3f9a1c2b7d10.jpg
-    └── 8e21aa04c5f3.png
+├── Roteiros/
+│   ├── Um dia na feira.md       (roteiros sem pasta)
+│   └── Canal/
+│       └── Série 1/
+│           └── Como consertei uma máquina.md
+├── Campanhas/
+│   └── Lançamento da série.md
+├── Lixeira/                     (roteiros na lixeira do app)
+├── anexos/                      (imagens e sons)
+│   ├── 3f9a1c2b7d10.jpg
+│   └── 8e21aa04c5f3.png
+└── configuracoes.json           (suas listas personalizadas e som)
 ```
+
+A **Pasta** de cada roteiro no app vira uma pasta de verdade no Drive. Mudou a pasta no app, o arquivo se move no Drive. As imagens funcionam de qualquer subpasta, também no Obsidian. O backup completo em `.zip` segue a mesma organização.
 
 Cada `.md` começa com as propriedades (frontmatter) e tem uma seção `##` por aba:
 
@@ -204,6 +225,7 @@ js/views/config.js       tela de Configurações
 js/config.js             listas personalizáveis e som (sincronizados no Drive)
 js/files.js              imagens (anexos), miniaturas e paleta de cores
 js/export.js             .md, .zip, .txt, PDF e importação
+js/importers.js          leitura de Word, .odt, .html, .txt e Markdown e reconhecimento da estrutura
 js/zip.js                leitura e gravação de .zip sem bibliotecas
 js/db.js                 armazenamento local (IndexedDB)
 js/drive.js              Google Drive

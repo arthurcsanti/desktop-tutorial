@@ -27,6 +27,7 @@
         </div>
       </header>
       <button class="btn btn-stamp btn-new" id="btn-new" type="button">+ Puxar folha nova</button>
+      <button class="btn btn-import" id="btn-import" type="button">⇪ Importar arquivos</button>
       <input class="search" id="search" type="search" placeholder="Buscar nos roteiros…" autocomplete="off">
       <nav class="nav" id="nav"></nav>
       <div class="list" id="list"></div>
@@ -88,6 +89,12 @@
       </fieldset>
 
       <fieldset>
+        <legend>Aplicativo</legend>
+        <p class="muted small">Se uma novidade publicada ainda não apareceu, busque a versão mais nova. Seus roteiros não mudam.</p>
+        <div class="row"><button class="btn" type="button" id="btn-update-app">Atualizar o aplicativo</button></div>
+      </fieldset>
+
+      <fieldset>
         <legend>Máquina</legend>
         <label class="check"><input type="checkbox" id="opt-sound"> Som de teclas de máquina de escrever</label>
         <label class="check"><input type="checkbox" id="opt-typewriter"> Rolagem de máquina (a linha atual fica no meio da tela)</label>
@@ -116,12 +123,42 @@
 
       <fieldset>
         <legend>Arquivos</legend>
-        <p class="muted small">Baixe tudo como um cofre do Obsidian (.md + pasta anexos) ou traga roteiros e notas de outros apps.</p>
+        <p class="muted small">Baixe tudo como um cofre do Obsidian (.md + pasta anexos) ou traga roteiros de outros apps: Word (.docx), Google Docs, LibreOffice (.odt), .txt, .md e .html.</p>
         <div class="row">
           <button class="btn" type="button" id="btn-backup">Baixar todos os roteiros (.zip)</button>
-          <label class="btn">Importar .md, .zip ou .json…<input type="file" id="file-import" accept=".md,.markdown,.txt,.zip,.json,text/markdown,application/zip,application/json" multiple hidden></label>
+          <button class="btn" type="button" id="btn-settings-import">Importar arquivos…</button>
         </div>
       </fieldset>
+    </form>
+  </dialog>
+
+  <dialog class="dialog" id="dlg-import">
+    <form method="dialog" class="dialog-body">
+      <header class="dialog-head">
+        <h2>Importar</h2>
+        <button class="btn btn-ghost" value="cancel" aria-label="Fechar">✕</button>
+      </header>
+      <label class="dropzone" id="drop-import">
+        <input type="file" id="import-input" multiple hidden accept=".docx,.odt,.txt,.md,.markdown,.html,.htm,.zip,.json,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/html,application/zip,application/json">
+        <span class="dz-title">Solte os arquivos aqui</span>
+        <span class="muted small">ou toque para escolher · Word (.docx), Google Docs baixado como .docx, LibreOffice (.odt), .txt, .md, .html, .zip</span>
+      </label>
+      <ul class="import-queue" id="import-queue"></ul>
+      <fieldset>
+        <legend>Modelo de importação</legend>
+        <label class="check import-mode"><input type="radio" name="import-mode" value="detectar" checked>
+          <span><b>Detectar a estrutura do roteiro</b> (recomendado)<br><span class="muted small">Ficha, tabela de cenas (CENA · NARRAÇÃO · VISUAL), notas de produção e texto integral vão cada um para a sua aba. Outros títulos viram páginas.</span></span></label>
+        <label class="check import-mode"><input type="radio" name="import-mode" value="pagina">
+          <span><b>Como página de texto</b><br><span class="muted small">O documento inteiro numa aba, com títulos, listas, negrito e tabelas.</span></span></label>
+        <label class="check import-mode"><input type="radio" name="import-mode" value="texto">
+          <span><b>Como texto corrido</b><br><span class="muted small">Só o texto, na aba Texto corrido — bom para um roteiro escrito de uma vez.</span></span></label>
+        <div class="grid-import">
+          <label class="field">Estrutura base<select id="import-template"></select></label>
+          <label class="field">Pasta (opcional)<input id="import-folder" list="import-folders" placeholder="Canal/Série" autocomplete="off"><datalist id="import-folders"></datalist></label>
+        </div>
+      </fieldset>
+      <div class="row row-end"><button type="button" class="btn btn-stamp" id="btn-do-import" disabled>Importar</button></div>
+      <div id="import-report"></div>
     </form>
   </dialog>
 

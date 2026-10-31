@@ -11,7 +11,7 @@ Visual inspirado em Notion e Obsidian, com modo claro e escuro.
 
 ## O que faz
 
-- **Importa extratos e faturas**: PDF, Excel (XLSX/XLS/ODS), CSV, OFX, TXT, Markdown e Word (DOCX). PDFs com senha pedem a senha.
+- **Importa extratos e faturas**: PDF, Excel (XLSX/XLS/ODS), CSV, OFX, TXT, Markdown e Word (DOCX). PDFs com senha pedem a senha. Dá para escolher **vários arquivos de uma vez** ou um **.zip** com os extratos de vários bancos.
 - **Bancos testados com os formatos de exportação**: Nubank (conta e fatura), Inter (extrato e fatura), Itaú, Santander, Mercado Pago e XP (fatura e posição de investimentos). O banco de origem é reconhecido automaticamente.
 - **Transferências entre suas contas** (PIX do Nubank para o Inter, por exemplo) não contam como gasto nem renda: basta informar seu nome em Ajustes. Pagamento de fatura, caixinhas/porquinhos e resgates também ficam de fora dos gastos.
 - **Organiza sozinho**: reconhece mais de 100 lojas e serviços brasileiros (iFood, Uber, Pão de Açúcar, Netflix…), separa gastos, entradas, aplicações e pagamentos de fatura, e ignora lançamentos repetidos.
@@ -39,11 +39,17 @@ Visual inspirado em Notion e Obsidian, com modo claro e escuro.
 
 ## Segurança
 
-- Dados cifrados com **AES-256-GCM** no IndexedDB do aparelho. Nada é enviado para servidores; não existe servidor.
+- Dados cifrados com **AES-256-GCM** no IndexedDB do aparelho. Não existe servidor do app: nada sai do aparelho, a não ser o backup cifrado no seu Google Drive, se você ligar.
 - Abre com **código de 6 dígitos** ou **Face ID** (WebAuthn). No iOS 18+ a chave de criptografia é derivada do próprio Face ID (extensão PRF).
 - **Esqueci o código**: entre com Face ID (se o rosto falhar, o iPhone pede o código do aparelho) ou com a **chave de recuperação** de 20 caracteres mostrada na criação. Depois é só criar um código novo.
 - Bloqueio automático ao sair do app (na hora, 1 ou 5 minutos), conteúdo borrado no seletor de apps e espera crescente após 5 códigos errados.
 - **Backup criptografado** (.lastro) para guardar no iCloud Drive; só abre com o seu código.
+- **Backup no Google Drive** (opcional, em Ajustes → Backup e atualização):
+  - envia o mesmo backup **cifrado** para a pasta `Lastro/Backups` do seu Drive; o Google só guarda dados embaralhados;
+  - conectado, faz backup sozinho uma vez por dia e depois de cada importação, e guarda os 15 mais recentes;
+  - **para restaurar** num celular novo, use "Restaurar do Google Drive" na tela de boas-vindas e depois o código daquele backup;
+  - usa o mesmo ID do cliente do Google do Máquina de Roteiro (o app reaproveita sozinho se ele já estiver salvo) e só enxerga os arquivos que ele mesmo criou.
+- **Atualizar o aplicativo** (Ajustes): busca a versão mais nova publicada sem mexer nos dados.
 
 ## Instalar no iPhone
 
