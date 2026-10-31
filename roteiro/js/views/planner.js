@@ -4,7 +4,7 @@
 // próprios (um .md cada), então tudo continua em Markdown.
 
 import { h, state, app, touch, ask, toast, scripts, campaigns, isoDate, parseIso, addDays, fmtDay, download } from '../core.js';
-import { PLATFORMS, POST_STATUSES, OBJECTIVES, CAMPAIGN_STATUSES, METRICS, newPost, makeTab, platformOf, buildCampaign } from '../model.js';
+import { PLATFORMS, POST_STATUSES, OBJECTIVES, METRICS, newPost, makeTab, platformOf, buildCampaign, withCurrent } from '../model.js';
 import { stamp } from './publicacoes.js';
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -231,7 +231,7 @@ function queueRow(x, { n, list, i } = {}) {
   const { p, s } = x;
   const late = p.date && p.date < isoDate() && p.status !== 'Publicado';
   const statusSel = h('select', { class: 'q-status', 'aria-label': 'Status', onClick: (e) => e.stopPropagation(), onChange: () => { p.status = statusSel.value; touch(s); app.showPlanner(); } },
-    POST_STATUSES.map((st) => h('option', { value: st }, st)));
+    withCurrent(POST_STATUSES, p.status).map((st) => h('option', { value: st }, st)));
   statusSel.value = p.status;
   // Trocar de posição na fila troca as datas e horas das duas publicações.
   const swap = (j) => () => {

@@ -6,9 +6,10 @@ import { summary, history, months, insights, recurring, subStatus, subsTotal, av
 import * as exporter from './exports.js';
 import { sampleData } from './sample.js';
 import { createPlan, PLAN_ROUTES } from './planviews.js';
+import { chartsView } from './chartviews.js';
 import * as P from './plan.js';
 import * as R from './reminders.js';
-import { icon, money, moneyShort, pct, esc, dateOf, uid, $, parseMoneyInput, WEEKDAYS, KINDS, KIND_COLOR, guessKind, avatar, tag, typeTag, heroValue, callout } from './ui.js';
+import { icon, money, moneyShort, pct, esc, dateOf, uid, $, parseMoneyInput, WEEKDAYS, KINDS, KIND_COLOR, guessKind, avatar, tag, typeTag, heroValue, callout, areValuesHidden, setValuesHidden } from './ui.js';
 
 
 /* ---------- estado ---------- */
@@ -277,6 +278,7 @@ async function enterApp(loadData) {
   pickMonth();
   gate.hidden = true;
   $('#app').hidden = false;
+  paintSideEye();
   render();
 }
 
@@ -308,15 +310,23 @@ document.addEventListener('visibilitychange', () => {
 const ROUTES = [
   { id: 'inicio', label: 'Início', icon: 'home' },
   { id: 'gastos', label: 'Gastos', icon: 'list' },
+  { id: 'graficos', label: 'Gráficos', icon: 'chart' },
   { id: 'assinaturas', label: 'Assinaturas', icon: 'repeat' },
   { id: 'investir', label: 'Investir', icon: 'trend' },
   { id: 'planejar', label: 'Planejar', icon: 'target' },
 ];
 
+// Olho: mostra ou esconde os valores em dinheiro (fica lembrado entre aberturas).
+function eyeButton() {
+  const hidden = areValuesHidden();
+  return `<button class="icon-btn eye-btn${hidden ? ' on' : ''}" data-action="toggle-values" aria-pressed="${hidden}" aria-label="${hidden ? 'Mostrar valores' : 'Ocultar valores'}" title="${hidden ? 'Mostrar valores' : 'Ocultar valores'}">${icon(hidden ? 'eyeOff' : 'eye')}</button>`;
+}
+
 function topbar() {
   return `<div class="topbar">
     <button class="month-pill" data-action="month">${monthLabel(mk)} ${icon('down')}</button>
     <div class="topbar-actions">
+      ${eyeButton()}
       <button class="icon-btn" data-action="import" aria-label="Importar">${icon('plus')}</button>
       <a class="icon-btn" href="#ajustes" aria-label="Ajustes">${icon('gear')}</a>
     </div></div>`;
@@ -356,7 +366,7 @@ function monthsChart() {
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gastos dos últimos 6 meses">
       <line class="grid" x1="0" x2="${W}" y1="${y(avg)}" y2="${y(avg)}" stroke-dasharray="2 4"/>
       <line class="grid" x1="0" x2="${W}" y1="${H - bottom}" y2="${H - bottom}"/>${bars}</svg></div>
-    <div class="chart-foot"><span>Média: ${money(avg)} <span class="dash-key"></span></span><button class="link" data-action="toggle-table">Ver tabela</button></div>
+    <div class="chart-foot"><span>Média: ${money(avg)} <span class="dash-key"></span></span><span><button class="link" data-action="toggle-table">Ver tabela</button> · <a class="link" href="#graficos">Mais gráficos</a></span></div>
     <table class="data-table" hidden><thead><tr><th>Mês</th><th>Gasto</th></tr></thead><tbody>${data6.map((d) => `<tr><td>${monthLabel(d.mk)}</td><td>${money(d.total)}</td></tr>`).join('')}</tbody></table>`;
 }
 
@@ -449,6 +459,10 @@ const views = {
       </div>`;
   },
 
+  graficos(params) {
+    return chartsView({ data, mk, params, topbar, emptyState });
+  },
+
   gastos(params) {
     const filter = params.get('f') || 'todos';
     const q = (params.get('q') || '').toLowerCase();
@@ -479,7 +493,7 @@ const views = {
     }).join('');
     return `${topbar()}
       <h1 class="page-title">Gastos</h1>
-      <p class="page-sub">${money(outSum)} em ${tx.filter((t) => t.type === 'out').length} gastos${allMonths ? ' · todos os meses' : ''}</p>
+      <p class="page-sub">${money(outSum)} em ${tx.filter((t) => t.type === 'out').length} gastos${allMonths ? ' · todos os meses' : ''} · <a class="link" href="#graficos${filter !== 'todos' && CATS[filter] ? `?c=${filter}` : ''}">Ver em gráficos</a></p>
       <label class="search">${icon('search')}<input type="search" placeholder="Buscar loja, descrição ou #etiqueta" value="${esc(q)}" data-action="search"></label>
       <div class="chips">${chips}</div>
       ${body || (data.tx.length ? '<p class="empty-hint">Nada encontrado neste mês.</p>' : emptyState('Nenhum gasto ainda', 'Importe um extrato para ver seus lançamentos aqui.'))}`;
@@ -618,7 +632,7 @@ const views = {
     const bioOk = await vault.bioAvailable();
     const theme = document.documentElement.dataset.theme || 'auto';
     const seg = (name, cur, opts) => `<div class="seg">${opts.map(([v, l]) => `<button class="${String(cur) === String(v) ? 'on' : ''}" data-set="${name}" data-v="${v}">${l}</button>`).join('')}</div>`;
-    return `<div class="topbar"><a class="link" href="#inicio">‹ Início</a><span></span></div>
+    return `<div class="topbar"><a class="link" href="#inicio">‹ Início</a><div class="topbar-actions">${eyeButton()}</div></div>
       <h1 class="page-title">Ajustes</h1>
       <p class="page-sub">Tudo fica neste aparelho</p>
 
@@ -634,7 +648,9 @@ const views = {
         </div></div>
 
       <div class="section"><div class="section-head"><h2 class="section-title">Aparência</h2></div>
-        <div class="list"><div class="row plain"><div class="row-main"><div class="row-title">Tema</div></div>${seg('theme', theme, [['auto', 'Auto'], ['light', 'Claro'], ['dark', 'Escuro']])}</div></div></div>
+        <div class="list"><div class="row plain"><div class="row-main"><div class="row-title">Tema</div></div>${seg('theme', theme, [['auto', 'Auto'], ['light', 'Claro'], ['dark', 'Escuro']])}</div>
+          <div class="row plain"><div class="row-main"><div class="row-title">Ocultar valores</div><div class="row-sub">Troca os valores em dinheiro por R$ ••••• para mostrar a tela a outras pessoas. Também pelo ícone de olho no topo. Exportações não são afetadas.</div></div>
+            <button class="switch ${areValuesHidden() ? 'on' : ''}" data-action="toggle-values" role="switch" aria-checked="${areValuesHidden()}" aria-label="Ocultar valores"></button></div></div></div>
 
       <div class="section"><div class="section-head"><h2 class="section-title">Finanças</h2></div>
         <div class="list">
@@ -660,11 +676,19 @@ const views = {
           <button class="row plain row-btn" data-action="sample"><div class="row-main"><div class="row-title">Carregar dados de exemplo</div></div>${icon('chevron')}</button>
           <button class="row plain row-btn" data-action="wipe"><div class="row-main"><div class="row-title danger">Apagar todos os dados</div></div></button>
         </div></div>
-      <p class="empty-hint">Lastro · versão 1.2.2</p>`;
+      <p class="empty-hint">Lastro · versão 1.3.0</p>`;
   },
 };
 
 /* ---------- render ---------- */
+function paintSideEye() {
+  const b = $('.side-eye');
+  if (!b) return;
+  const hidden = areValuesHidden();
+  b.innerHTML = `${icon(hidden ? 'eyeOff' : 'eye')}<span>${hidden ? 'Mostrar valores' : 'Ocultar valores'}</span>`;
+  b.classList.toggle('on', hidden);
+  b.setAttribute('aria-pressed', String(hidden));
+}
 let renderSeq = 0;
 async function render() {
   if (!data) return;
@@ -675,7 +699,7 @@ async function render() {
   const html = await all[id](new URLSearchParams(query || ''));
   if (seq !== renderSeq) return;
   $('#view').innerHTML = html;
-  const tab = PLAN_ROUTES.includes(id) ? 'planejar' : id === 'investir' || id === 'assinaturas' || id === 'gastos' ? id : id === 'ajustes' ? '' : 'inicio';
+  const tab = PLAN_ROUTES.includes(id) ? 'planejar' : ['investir', 'assinaturas', 'gastos', 'graficos'].includes(id) ? id : id === 'ajustes' ? '' : 'inicio';
   const nav = ROUTES.map((r) => `<a href="#${r.id}" class="${r.id === tab ? 'active' : ''}">${icon(r.icon)}<span>${r.label}</span></a>`).join('');
   $('.tabbar').innerHTML = nav;
   $('.side-nav').innerHTML = nav + `<a href="#ajustes" class="${id === 'ajustes' ? 'active' : ''}">${icon('gear')}<span>Ajustes</span></a>`;
@@ -943,6 +967,9 @@ async function doExport(fmt) {
 document.addEventListener('click', async (e) => {
   const chip = e.target.closest('[data-filter]');
   if (chip) { location.hash = `gastos?f=${chip.dataset.filter}`; return; }
+  // barras dos gráficos levam ao detalhe do dia
+  const link = e.target.closest('[data-href]');
+  if (link) { location.hash = link.dataset.href; return; }
   const goto = e.target.closest('[data-goto]');
   if (goto) { mk = goto.dataset.goto; render(); return; }
   const set = e.target.closest('[data-set]');
@@ -957,6 +984,12 @@ document.addEventListener('click', async (e) => {
   const id = a.dataset.id;
   switch (act) {
     case 'import': importSheet(a.dataset.mode || 'tx'); break;
+    case 'toggle-values':
+      setValuesHidden(!areValuesHidden());
+      paintSideEye();
+      render();
+      toast(areValuesHidden() ? 'Valores ocultos' : 'Valores visíveis');
+      break;
     case 'close-sheet': closeSheet(); break;
     case 'month': monthSheet(); break;
     case 'set-month': mk = a.dataset.mk; closeSheet(); render(); break;

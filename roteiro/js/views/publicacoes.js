@@ -3,7 +3,7 @@
 // resultados depois de publicado.
 
 import { h, field, touch, app, campaigns, addDays, isoDate, button } from '../core.js';
-import { PLATFORMS, POST_STATUSES, METRICS, newPost, platformOf } from '../model.js';
+import { PLATFORMS, POST_STATUSES, METRICS, newPost, platformOf, withCurrent } from '../model.js';
 import { nextFreeDate } from './planner.js';
 
 export function platformSelect(p, onChange) {
@@ -39,7 +39,7 @@ function postCard(s, tab, p, i) {
     h('div', { class: 'pub-row' },
       stamp(p.platform),
       platformSelect(p, () => { save(); app.renderEditor(); }),
-      select(POST_STATUSES, p.status, (v) => { p.status = v; save(); app.renderEditor(); }, { class: 'pub-status', 'aria-label': 'Status' }),
+      select(withCurrent(POST_STATUSES, p.status), p.status, (v) => { p.status = v; save(); app.renderEditor(); }, { class: 'pub-status', 'aria-label': 'Status' }),
       h('button', { type: 'button', class: 'btn btn-ghost btn-mini', title: 'Remover publicação', 'aria-label': 'Remover publicação', onClick: () => { tab.posts.splice(i, 1); save(); app.renderEditor(); } }, '✕')),
     h('div', { class: 'pub-row pub-when' },
       h('label', null, 'Data ', field('input', p.date, (v) => { p.date = v; save(); }, { type: 'date' })),

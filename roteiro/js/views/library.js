@@ -2,7 +2,7 @@
 // tabela e quadro por status.
 
 import { h, field, touch, app, state, fmtDate } from '../core.js';
-import { STATUSES, TEMPLATES, coverOf } from '../model.js';
+import { STATUSES, TEMPLATES, coverOf, withCurrent } from '../model.js';
 import { img } from '../files.js';
 import { roteiroStats } from './roteiro.js';
 
@@ -27,7 +27,7 @@ function sortItems(items) {
 
 function statusSelect(s) {
   const sel = h('select', { class: 'status-select', 'aria-label': 'Status', onClick: (e) => e.stopPropagation(), onChange: () => { s.status = sel.value; touch(s); app.showLibrary(); } },
-    STATUSES.map((st) => h('option', { value: st }, st)));
+    withCurrent(STATUSES, s.status).map((st) => h('option', { value: st }, st)));
   sel.value = s.status;
   return sel;
 }

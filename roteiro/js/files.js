@@ -36,6 +36,14 @@ export async function saveImage(file) {
   return path;
 }
 
+// Arquivo de som (teclas da máquina): guardado como está, sem conversão.
+export async function saveAudio(file) {
+  const ext = (file.name.split('.').pop() || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'mp3';
+  const path = `anexos/som-${shortId()}.${ext}`;
+  await db.putFile({ path, blob: file, type: file.type || 'audio/mpeg', createdAt: Date.now(), synced: false });
+  return path;
+}
+
 export async function putDownloaded(path, blob) {
   await db.putFile({ path, blob, type: blob.type, createdAt: Date.now(), synced: true });
 }

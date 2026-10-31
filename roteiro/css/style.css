@@ -1,6 +1,7 @@
 /* Máquina de Roteiro — mesa de madeira escura, papel envelhecido, tinta de fita. */
 
 :root {
+  --tabs-h: 44px;
   --type: 'Special Elite', 'Courier Prime', 'Courier New', monospace;
   --mono: 'Courier Prime', 'Courier New', Courier, monospace;
 
@@ -206,7 +207,8 @@ button { cursor: pointer; }
     radial-gradient(ellipse at 50% 0%, rgba(255, 220, 160, .06), transparent 60%),
     repeating-linear-gradient(0deg, rgba(0,0,0,.08) 0 1px, transparent 1px 5px),
     var(--desk);
-  scroll-padding-top: 80px;
+  scroll-padding-top: calc(var(--top-h, 56px) + var(--tabs-h) + 50px);
+  overscroll-behavior-y: contain;
 }
 
 .topbar {
@@ -217,7 +219,8 @@ button { cursor: pointer; }
   align-items: center;
   gap: 10px;
   padding: max(10px, env(safe-area-inset-top)) 18px 10px;
-  background: linear-gradient(var(--desk) 70%, transparent);
+  background: var(--desk);
+  box-shadow: 0 6px 10px -8px rgba(0,0,0,.6);
 }
 .crumb { flex: 1; min-width: 0; font-size: .85rem; color: var(--desk-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .crumb span:last-child { color: var(--desk-ink); }
@@ -323,16 +326,23 @@ button { cursor: pointer; }
 .prop .prop-val { font-size: .92rem; padding: 2px 6px; }
 .prop-static .prop-val { color: var(--ink-soft); font-size: .82rem; }
 
-/* abas do roteiro: fichas de arquivo */
+/* abas do roteiro: fichas de arquivo. Ficam presas logo abaixo do topo ao rolar. */
 .tabs {
+  position: sticky;
+  top: var(--top-h, 56px);
+  z-index: 4;
   display: flex;
   align-items: flex-end;
   gap: 3px;
+  height: var(--tabs-h);
   margin: 22px -8px 26px;
-  padding: 0 8px;
+  padding: 6px 8px 0;
   border-bottom: 2px solid var(--ink);
+  background: var(--paper);
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
+  overscroll-behavior-x: contain;
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
@@ -374,7 +384,7 @@ button { cursor: pointer; }
 
 .toolbar {
   position: sticky;
-  top: 56px;
+  top: calc(var(--top-h, 56px) + var(--tabs-h));
   z-index: 3;
   display: flex;
   flex-wrap: wrap;
@@ -805,6 +815,48 @@ th:hover > .grid-x, tr:hover .grid-tools .grid-x, .grid-x:focus { opacity: 1; }
 .paper .pub-metrics input { padding: 2px 4px; border-bottom: 1px dotted var(--ink-faint); font-size: .85rem; }
 .paper .pub-note { font-size: .84rem; font-style: italic; }
 
+/* ---------- configurações ---------- */
+
+.part {
+  margin: 30px 0 12px;
+  font-family: var(--type);
+  font-weight: normal;
+  font-size: 1.05rem;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+}
+.cfg-list > .btn { justify-self: start; }
+
+.cfg-paper { max-width: 860px; margin: 0 auto; }
+.cfg-intro { margin: 0 0 8px; }
+.cfg-state { font-size: .8rem; color: var(--desk-muted); }
+.cfg-sec { padding: 6px 0 18px; border-bottom: 1px dashed var(--rule); }
+.cfg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.cfg-head .part { margin: 22px 0 6px; }
+.cfg-list { display: grid; gap: 4px; margin-top: 8px; }
+.cfg-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto auto auto; align-items: center; gap: 4px; border-bottom: 1px dotted var(--rule); }
+.cfg-n { font-family: var(--type); font-size: .8rem; color: var(--ink-soft); }
+.paper .cfg-input { padding: 4px 6px; border-bottom: 1px solid transparent; }
+.paper .cfg-input:hover { border-bottom-color: var(--ink-faint); }
+.cfg-add { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.paper .cfg-add .cfg-input { border: 1px dashed var(--ink-faint); }
+.cfg-pf { padding: 6px 8px; border: 1px solid var(--ink-faint); border-left: 4px solid var(--pf); }
+.cfg-pf-top { display: grid; grid-template-columns: 34px auto minmax(0, 1fr) 70px auto auto auto; align-items: center; gap: 6px; }
+.paper .cfg-color { width: 32px; height: 26px; padding: 0 2px; border: 1px solid var(--ink-faint); cursor: pointer; }
+.paper .cfg-abbr { text-align: center; text-transform: uppercase; font-family: var(--type); }
+.cfg-sub { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+.cfg-sub .cfg-input { text-transform: none; letter-spacing: 0; font-size: .88rem; }
+.cfg-legend { display: grid; grid-template-columns: 130px 150px minmax(0, 1fr) auto auto; gap: 6px; align-items: center; border-bottom: 1px dotted var(--rule); }
+.paper .cfg-code { font-weight: 700; }
+.cfg-sound { display: grid; gap: 8px; }
+.cfg-radio { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.paper .cfg-radio input { width: auto; margin-top: 5px; accent-color: var(--ribbon); }
+.cfg-files { display: grid; gap: 6px; margin-left: 28px; padding: 8px 10px; border: 1px dashed var(--ink-faint); }
+.cfg-file { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cfg-file > span:first-child { min-width: 64px; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; }
+.paper .cfg-file input[type=range] { width: 180px; accent-color: var(--ribbon); }
+.nav-config { margin-top: 8px; border-top: 1px solid var(--desk-line); padding-top: 10px; }
+
 /* ---------- botões ---------- */
 
 .btn {
@@ -1058,7 +1110,8 @@ img.img-missing { min-height: 80px; background: repeating-linear-gradient(45deg,
   .paper { padding: 26px 18px 40px; }
   .props { grid-template-columns: 1fr; }
   .cover-img { margin: 0 -18px 18px; height: 150px; }
-  .toolbar { top: 50px; margin: -8px -12px 14px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .toolbar { margin: -8px -12px 14px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .tabs { margin: 16px -18px 20px; padding-left: 12px; padding-right: 12px; }
   .toolbar::-webkit-scrollbar { display: none; }
   .tb { flex: none; }
   .savestate { display: none; }
@@ -1078,6 +1131,10 @@ img.img-missing { min-height: 80px; background: repeating-linear-gradient(45deg,
   .l-row .l-meta { display: none; }
   .gallery { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
   .lib-title { font-size: 1.4rem; }
+  .cfg-pf-top { grid-template-columns: 34px auto minmax(0, 1fr) 56px; }
+  .cfg-pf-top .btn-mini { grid-row: 2; }
+  .cfg-legend { grid-template-columns: 1fr 1fr auto auto; }
+  .cfg-legend .cfg-input:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
   .planner-paper { padding: 14px 8px 22px; }
   .cal-month { min-width: 0; font-size: 1.1rem; }
   .cal-day { min-height: 64px; padding: 2px; }

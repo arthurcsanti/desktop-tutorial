@@ -40,7 +40,11 @@ export const PLATFORMS = [
   { id: 'Newsletter', abbr: 'NEWS', color: '#7a6331', formats: ['E-mail', 'Blog'] },
   { id: 'Outro', abbr: '•', color: '#6b5d48', formats: ['Outro'] },
 ];
-export const platformOf = (id) => PLATFORMS.find((p) => p.id === id) || PLATFORMS.at(-1);
+const OTHER_PLATFORM = { id: 'Outro', abbr: '•', color: '#6b5d48', formats: ['Outro'] };
+export const platformOf = (id) => PLATFORMS.find((p) => p.id === id) || { ...OTHER_PLATFORM, id: id || 'Outro' };
+
+// Listas personalizáveis podem não ter mais um valor já usado: ele continua aparecendo no seletor.
+export const withCurrent = (list, v) => (v && !list.includes(v) ? [...list, v] : list);
 
 export const POST_STATUSES = ['Ideia', 'Planejado', 'Em produção', 'Pronto', 'Agendado', 'Publicado'];
 

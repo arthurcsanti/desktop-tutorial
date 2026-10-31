@@ -61,6 +61,17 @@ O mesmo app roda no **Android, iPhone, iPad, Windows e Mac**. Funciona sem inter
   - O botão **"+ Cortes"** cria de uma vez um Short, um Reels e um TikTok nos dias seguintes.
 - **Exportar para o calendário (.ics):** as publicações viram eventos com alarme no app Calendário do iPhone, do Android ou do computador.
 
+### Configurações (personalize o app)
+- Abra em **⚙ Configurações**, na barra lateral, ou em **Ajustes → Abrir Configurações**.
+- Você pode editar, reordenar, adicionar e remover:
+  - status dos roteiros, status das publicações e status das campanhas;
+  - objetivos de campanha, tipos de referência e planos de câmera;
+  - **plataformas** (nome, sigla do carimbo, cor e formatos);
+  - a **legenda do roteiro** (os botões OFF, [beat], LETTERING…).
+- **Renomear um item** atualiza também os roteiros, publicações e campanhas que já usavam aquele nome.
+- **Som das teclas:** o de máquina de escrever ou um som seu (uma tecla e, se quiser, o retorno do carro no Enter), com volume.
+- **Em todos os aparelhos:** com o Drive conectado, as configurações vão no arquivo `configuracoes.json` da pasta do app (o som vai junto, em `anexos/`) e valem em todos os aparelhos da mesma conta.
+
 ### A vibe de máquina de escrever
 - Papel com textura e manchas, mesa de madeira escura e fonte de datilografia.
 - Títulos das seções em vermelho, como a fita da máquina, e status em carimbo.
@@ -93,6 +104,7 @@ Máquina de Roteiro/              (pasta no Google Drive)
 ├── Como consertei uma máquina.md
 ├── Um dia na feira.md
 ├── Lançamento da série.md       (campanha)
+├── configuracoes.json           (suas listas personalizadas e som)
 └── anexos/
     ├── 3f9a1c2b7d10.jpg
     └── 8e21aa04c5f3.png
@@ -188,6 +200,8 @@ js/views/tabela.js       banco de dados com tipos de coluna e quadro
 js/views/library.js      arquivo: galeria, lista, tabela e quadro
 js/views/planner.js      calendário, ordem de publicação e campanhas
 js/views/publicacoes.js  aba Publicações de cada roteiro
+js/views/config.js       tela de Configurações
+js/config.js             listas personalizáveis e som (sincronizados no Drive)
 js/files.js              imagens (anexos), miniaturas e paleta de cores
 js/export.js             .md, .zip, .txt, PDF e importação
 js/zip.js                leitura e gravação de .zip sem bibliotecas
