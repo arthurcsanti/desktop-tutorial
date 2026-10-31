@@ -204,5 +204,14 @@ export function configView() {
         () => { if (confirm('Voltar as plataformas ao padrão?')) { resetList('platforms'); app.saveConfig(); app.showConfig(); } }),
       section('Legenda do roteiro', 'Os botões de marcação da aba Roteiro (OFF, [beat], LETTERING…): o texto que cada um insere e a explicação.', legendEditor(),
         () => { if (confirm('Voltar a legenda ao padrão?')) { resetList('legend'); app.saveConfig(); app.showConfig(); } }),
-      section('Som das teclas', '', soundEditor())));
+      section('Som das teclas', '', soundEditor()),
+      section('Aplicativo', 'Se uma novidade publicada ainda não apareceu, busque a versão mais nova. Seus roteiros e configurações não mudam.', appSection())));
+}
+
+function appSection() {
+  const ver = h('span', { class: 'muted small' }, 'versão instalada: …');
+  app.appVersion?.().then((v) => { ver.textContent = v ? `versão instalada: ${v}` : ''; });
+  return h('div', { class: 'cfg-file' },
+    h('button', { type: 'button', class: 'btn btn-stamp', onClick: () => app.updateApp() }, 'Atualizar o aplicativo'),
+    ver);
 }

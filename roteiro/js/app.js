@@ -529,6 +529,24 @@ app.showConfig = () => {
   setDrawer(false);
 };
 
+// Busca a versão mais nova publicada: apaga só os arquivos guardados do app e recarrega.
+app.updateApp = async () => {
+  if (!navigator.onLine) return toast('Sem internet: conecte para buscar a versão nova.');
+  toast('Procurando a versão mais nova…');
+  await flushSaves();
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await reg?.update();
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k.startsWith('maquina-de-roteiro-')).map((k) => caches.delete(k)));
+  } catch { /* segue para recarregar */ }
+  location.reload();
+};
+
+app.appVersion = async () => {
+  try { return ((await caches.keys()).find((k) => k.startsWith('maquina-de-roteiro-')) || '').replace('maquina-de-roteiro-', ''); } catch { return ''; }
+};
+
 app.saveConfig = async () => {
   await db.setMeta('config', configSnapshot());
   app.scheduleSync();
@@ -888,6 +906,7 @@ function bind() {
   $('#btn-new').addEventListener('click', () => $('#dlg-new').showModal());
   $('#btn-settings').addEventListener('click', openSettings);
   $('#btn-open-config').addEventListener('click', () => { $('#dlg-settings').close(); app.showConfig(); });
+  $('#btn-update-app').addEventListener('click', () => app.updateApp());
   $('#btn-menu').addEventListener('click', () => setDrawer(!$('#app').classList.contains('drawer-open')));
   $('#scrim').addEventListener('click', () => setDrawer(false));
   $('#search').addEventListener('input', (e) => {

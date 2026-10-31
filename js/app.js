@@ -7,6 +7,8 @@ import * as exporter from './exports.js';
 import { sampleData } from './sample.js';
 import { createPlan, PLAN_ROUTES } from './planviews.js';
 import { chartsView } from './chartviews.js';
+import * as G from './gdrive.js';
+import { readZip } from './zip.js';
 import * as P from './plan.js';
 import * as R from './reminders.js';
 import { icon, money, moneyShort, pct, esc, dateOf, uid, $, parseMoneyInput, WEEKDAYS, KINDS, KIND_COLOR, guessKind, avatar, tag, typeTag, heroValue, callout, areValuesHidden, setValuesHidden } from './ui.js';
@@ -93,6 +95,12 @@ async function gateAction(a) {
   if (a === 'bio') return bioUnlock();
   if (a === 'recovery') return recoveryInput();
   if (a === 'restore') return restoreBackup();
+  if (a === 'drive-restore') return driveGate();
+  if (a === 'drive-gate-connect') {
+    G.setClientId($('#drive-client', gate)?.value);
+    try { await G.connect(); return driveGate(await G.listBackups()); } catch (e) { return toast(e.message); }
+  }
+  if (a.startsWith('drive-pick:')) return restoreFromDrive(a.slice(11));
   if (a === 'wipe') {
     if (!confirm('Apagar todos os dados deste aparelho? Isso não pode ser desfeito.')) return;
     await vault.wipe(); return welcome();
@@ -125,6 +133,7 @@ function welcome() {
     </ul>
     <button class="btn primary block" data-gate="start">Começar</button>
     <button class="link lock-link" data-gate="restore">Restaurar de um backup</button>
+    <button class="link lock-link" data-gate="drive-restore">Restaurar do Google Drive</button>
   </div>`;
 }
 
@@ -256,6 +265,115 @@ function resetPin() {
   });
 }
 
+/* ---------- backup no Google Drive ---------- */
+const fmtWhen = (iso) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+// data do backup: a do Drive ou, se faltar, a que está no nome do arquivo (lastro-backup-AAAA-MM-DD-HHhMM)
+function backupWhen(f) {
+  if (f.createdTime && !Number.isNaN(Date.parse(f.createdTime))) return fmtWhen(f.createdTime);
+  const m = /(\d{4})-(\d{2})-(\d{2})-(\d{2})h(\d{2})/.exec(f.name || '');
+  return m ? fmtWhen(new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).toISOString()) : f.name;
+}
+
+function driveStatus() {
+  const last = G.lastBackup();
+  if (!G.clientId()) return 'Desligado · cópia cifrada no seu Drive';
+  if (!G.isConnected()) return last ? `Último backup ${fmtWhen(last)} · toque para conectar` : 'Toque para conectar';
+  return last ? `Conectado · último backup ${fmtWhen(last)}` : 'Conectado';
+}
+
+let backingUp = false;
+async function driveBackup() {
+  if (backingUp) return;
+  backingUp = true;
+  try {
+    await save();
+    await saving;
+    const r = await G.backupNow(await vault.exportBackup());
+    toast(`Backup salvo no Drive (${r.kept} guardado${r.kept > 1 ? 's' : ''})`);
+  } catch (e) {
+    toast(e.message || 'Não foi possível fazer o backup');
+  } finally {
+    backingUp = false;
+  }
+}
+
+// Com o Drive conectado: um backup por dia e outro depois de cada importação.
+async function autoBackup(reason) {
+  if (!G.isConnected() || !data) return;
+  const last = Date.parse(G.lastBackup() || 0) || 0;
+  if (reason === 'daily' && Date.now() - last < 24 * 3600 * 1000) return;
+  driveBackup();
+}
+
+async function driveSheet(list) {
+  G.loadGoogle().catch(() => {}); // já carrega o login, para a janela abrir no toque
+  const guessed = !G.clientId() ? await G.guessClientId() : '';
+  const id = G.clientId() || guessed;
+  const on = G.isConnected();
+  openSheet(`<h2>Backup no Google Drive</h2>
+    <p class="page-sub">Uma cópia <b>cifrada</b> dos seus dados vai para a pasta <b>Lastro/Backups</b> do seu Drive. Sem o seu código ou a chave de recuperação ninguém consegue abrir, nem o Google.</p>
+    <label class="form"><span class="tiny" style="margin:0">ID do cliente do Google</span>
+      <input class="field" id="drive-client" value="${esc(id)}" placeholder="000000000000-xxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false"></label>
+    ${guessed ? `<p class="note">${icon('info')} Usando o mesmo ID do Máquina de Roteiro.</p>` : ''}
+    <div class="list"><div class="row plain"><div class="row-main"><div class="row-title">Situação</div><div class="row-sub">${driveStatus()}</div></div></div></div>
+    <div class="sheet-foot">
+      ${on ? `<button class="btn block primary" data-action="drive-backup">Fazer backup agora</button>
+        <button class="btn block" data-action="drive-list">Restaurar um backup do Drive</button>
+        <button class="btn block ghost" data-action="drive-disconnect">Desconectar</button>`
+      : '<button class="btn block primary" data-action="drive-connect">Conectar ao Google Drive</button>'}
+    </div>
+    ${list ? `<div class="section"><div class="section-head"><h2 class="section-title">Backups no Drive</h2></div>
+      ${list.length ? `<div class="list">${list.map((f) => `<button class="row plain row-btn" data-action="drive-restore" data-id="${esc(f.id)}"><div class="row-main"><div class="row-title">${backupWhen(f)}</div><div class="row-sub">${esc(f.name)}</div></div>${icon('upload')}</button>`).join('')}</div>` : '<p class="empty-hint">Nenhum backup no Drive ainda.</p>'}</div>` : ''}
+    <p class="note">${icon('info')} Conectado, o Lastro faz um backup sozinho uma vez por dia e depois de cada importação. Ficam os 15 mais recentes. Por segurança, o Google pede para conectar de novo depois de cerca de 1 hora.</p>`);
+}
+
+// Restaurar num aparelho novo (tela de boas-vindas), sem dados abertos.
+async function driveGate(list) {
+  pinHandler = null;
+  G.loadGoogle().catch(() => {});
+  const id = G.clientId() || await G.guessClientId();
+  gate.innerHTML = `<div class="lock-inner">
+    <button class="lock-back link" data-gate="welcome">‹ Voltar</button>
+    <div class="gate-ico">${icon('upload')}</div>
+    <h1 class="lock-title">Restaurar do Drive</h1>
+    <p class="lock-sub">Escolha um backup da pasta Lastro/Backups. Depois, abra com o código (ou a chave de recuperação) daquele backup.</p>
+    ${list ? (list.length ? `<div class="list choice">${list.map((f) => `<button class="row plain row-btn" data-gate="drive-pick:${esc(f.id)}"><div class="row-main"><div class="row-title">${backupWhen(f)}</div><div class="row-sub">${esc(f.name)}</div></div>${icon('chevron')}</button>`).join('')}</div>` : '<p class="lock-sub">Nenhum backup encontrado no Drive.</p>')
+    : `<label class="form" style="text-align:left"><span class="tiny" style="margin:0">ID do cliente do Google</span><input class="field" id="drive-client" value="${esc(id)}" placeholder="....apps.googleusercontent.com" autocomplete="off" spellcheck="false"></label>
+       <button class="btn primary block" data-gate="drive-gate-connect">Conectar e listar backups</button>`}
+  </div>`;
+}
+
+async function restoreFromDrive(fileId) {
+  if (await vault.exists() && !confirm('Substituir os dados deste aparelho por este backup do Drive?')) return;
+  try {
+    toast('Baixando backup…');
+    const text = await G.downloadBackup(fileId);
+    await saving;
+    await vault.importBackup(text);
+    data = null;
+    showGate();
+    toast('Backup restaurado. Use o código daquele backup.');
+    unlockScreen();
+  } catch (e) {
+    toast(e.message || 'Backup inválido');
+  }
+}
+
+/* ---------- atualizar o aplicativo ---------- */
+async function updateApp() {
+  if (!navigator.onLine) return toast('Sem internet: conecte para buscar a versão nova.');
+  toast('Procurando a versão mais nova…');
+  if (data) { await save(); await saving; }
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await reg?.update();
+    // apaga só os arquivos guardados do Lastro: ao recarregar, tudo vem da internet
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k.startsWith('lastro-')).map((k) => caches.delete(k)));
+  } catch { /* segue para recarregar */ }
+  location.reload();
+}
+
 function restoreBackup() {
   const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.lastro,.json,application/json' });
   input.onchange = async () => {
@@ -280,6 +398,7 @@ async function enterApp(loadData) {
   $('#app').hidden = false;
   paintSideEye();
   render();
+  autoBackup('daily');
 }
 
 async function lockApp() {
@@ -301,6 +420,7 @@ document.addEventListener('visibilitychange', () => {
   } else {
     document.body.classList.remove('privacy');
     if (data && Date.now() - hiddenAt >= (data.settings.lockAfter ?? 60) * 1000) lockApp();
+    else if (data) autoBackup('daily');
   }
 });
 
@@ -643,7 +763,7 @@ const views = {
           <button class="row plain row-btn" data-action="change-pin"><div class="row-main"><div class="row-title">Alterar código</div></div>${icon('chevron')}</button>
           <button class="row plain row-btn" data-action="new-recovery"><div class="row-main"><div class="row-title">Nova chave de recuperação</div><div class="row-sub">A anterior deixa de funcionar</div></div>${icon('chevron')}</button>
           <div class="row plain"><div class="row-main"><div class="row-title">Bloquear após</div></div>${seg('lockAfter', st.lockAfter, [[0, 'Na hora'], [60, '1 min'], [300, '5 min']])}</div>
-          <div class="row plain"><div class="row-main"><div class="row-title">Criptografia</div><div class="row-sub">AES-256-GCM · nada é enviado para a internet</div></div><span class="val-text">Ativa</span></div>
+          <div class="row plain"><div class="row-main"><div class="row-title">Criptografia</div><div class="row-sub">AES-256-GCM · nada sai do aparelho, a não ser o backup cifrado no seu Drive, se você ligar</div></div><span class="val-text">Ativa</span></div>
           <button class="row plain row-btn" data-action="lock"><div class="row-main"><div class="row-title">Bloquear agora</div></div>${icon('lock')}</button>
         </div></div>
 
@@ -668,6 +788,12 @@ const views = {
           <button class="row plain row-btn" data-action="rules"><div class="row-main"><div class="row-title">Regras de categoria</div><div class="row-sub">${data.rules.length} regra${data.rules.length === 1 ? '' : 's'} criada${data.rules.length === 1 ? '' : 's'} por você</div></div>${icon('chevron')}</button>
         </div></div>
 
+      <div class="section"><div class="section-head"><h2 class="section-title">Backup e atualização</h2></div>
+        <div class="list">
+          <button class="row plain row-btn" data-action="drive"><div class="row-main"><div class="row-title">Backup no Google Drive</div><div class="row-sub">${driveStatus()}</div></div>${icon('chevron')}</button>
+          <button class="row plain row-btn" data-action="app-update"><div class="row-main"><div class="row-title">Atualizar o aplicativo</div><div class="row-sub">Busca a versão mais nova publicada. Seus dados não mudam.</div></div>${icon('repeat')}</button>
+        </div></div>
+
       <div class="section"><div class="section-head"><h2 class="section-title">Dados</h2></div>
         <div class="list">
           <button class="row plain row-btn" data-action="backup"><div class="row-main"><div class="row-title">Fazer backup criptografado</div><div class="row-sub">Arquivo .lastro para guardar no iCloud Drive</div></div>${icon('share')}</button>
@@ -676,7 +802,7 @@ const views = {
           <button class="row plain row-btn" data-action="sample"><div class="row-main"><div class="row-title">Carregar dados de exemplo</div></div>${icon('chevron')}</button>
           <button class="row plain row-btn" data-action="wipe"><div class="row-main"><div class="row-title danger">Apagar todos os dados</div></div></button>
         </div></div>
-      <p class="empty-hint">Lastro · versão 1.3.0</p>`;
+      <p class="empty-hint">Lastro · versão 1.4.0</p>`;
   },
 };
 
@@ -731,39 +857,69 @@ function monthSheet() {
 }
 
 /* ---------- importação ---------- */
-const ACCEPT = '.pdf,.csv,.tsv,.xlsx,.xls,.xlsm,.ods,.ofx,.qfx,.txt,.md,.markdown,.docx,text/plain,text/csv,application/pdf';
+const ACCEPT = '.pdf,.csv,.tsv,.xlsx,.xls,.xlsm,.ods,.ofx,.qfx,.txt,.md,.markdown,.docx,.zip,text/plain,text/csv,application/pdf,application/zip';
+const READABLE = /\.(pdf|csv|tsv|xlsx|xls|xlsm|ods|ofx|qfx|txt|md|markdown|docx)$/i;
+
+// Um .zip vira os arquivos de dentro (extratos de vários bancos de uma vez).
+async function expandFiles(files) {
+  const out = [];
+  for (const f of files) {
+    if (/\.zip$/i.test(f.name)) {
+      for (const e of await readZip(f)) {
+        const base = e.name.split('/').pop();
+        if (READABLE.test(base) && !e.name.startsWith('__MACOSX') && !base.startsWith('.')) out.push(new File([e.data], base));
+      }
+    } else out.push(f);
+  }
+  return out;
+}
 function importSheet(mode = 'tx') {
   openSheet(`<h2>Importar</h2>
     <p class="page-sub">Os lançamentos são lidos e organizados automaticamente.</p>
     <div class="seg wide">${[['tx', 'Extrato ou fatura'], ['inv', 'Investimentos']].map(([v, l]) => `<button class="${mode === v ? 'on' : ''}" data-action="import" data-mode="${v}">${l}</button>`).join('')}</div>
     <label class="drop" id="drop">${icon('upload')}
       <p>${mode === 'tx' ? 'Escolha o extrato da conta ou a fatura do cartão' : 'Escolha a planilha ou o PDF de posição da corretora'}</p>
-      <span class="btn primary">Escolher arquivo</span>
-      <input type="file" id="file-in" accept="${ACCEPT}" hidden data-mode="${mode}">
+      <span class="btn primary">Escolher arquivos</span>
+      <input type="file" id="file-in" accept="${ACCEPT}" multiple hidden data-mode="${mode}">
     </label>
-    <div class="formats">${['PDF', 'XLSX', 'CSV', 'OFX', 'TXT', 'MD', 'DOCX'].map((f) => `<span class="ext">${f}</span>`).join('')}</div>
+    <div class="formats">${['PDF', 'XLSX', 'CSV', 'OFX', 'TXT', 'MD', 'DOCX', 'ZIP'].map((f) => `<span class="ext">${f}</span>`).join('')}</div>
+    <p class="note">${icon('info')} Pode escolher vários arquivos de uma vez, ou um .zip com os extratos de vários bancos.</p>
     <p class="note">${icon('lock')} O arquivo é lido aqui no aparelho. Nada é enviado para a internet.</p>
     ${mode === 'tx' ? '<p class="note">' + icon('info') + ' No app do banco, procure por “Exportar extrato” ou “Baixar fatura”. OFX e CSV são os mais precisos.</p>' : ''}`);
   const input = $('#file-in');
-  input.onchange = () => input.files[0] && handleFile(input.files[0], mode);
+  input.onchange = () => input.files.length && handleFiles([...input.files], mode);
   const drop = $('#drop');
   drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
   drop.ondragleave = () => drop.classList.remove('over');
-  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0], mode); };
+  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files.length) handleFiles([...e.dataTransfer.files], mode); };
 }
 
 const askPassword = async (retry) => prompt(retry ? 'Senha incorreta. Tente de novo:' : 'Este PDF tem senha (muitos bancos usam parte do CPF). Digite a senha:');
 
 let pending = null;
-async function handleFile(file, mode) {
-  openSheet(`<div class="loading"><div class="spinner"></div><p>Lendo ${esc(file.name)}…</p></div>`);
+async function handleFiles(picked, mode) {
+  openSheet(`<div class="loading"><div class="spinner"></div><p>Lendo ${picked.length > 1 ? `${picked.length} arquivos` : esc(picked[0].name)}…</p></div>`);
   try {
+    const files = await expandFiles(picked);
+    if (!files.length) throw new Error('O .zip não tem extratos em formatos que o Lastro lê.');
+    const label = files.length > 1 ? `${files.length} arquivos (${files.map((f) => f.name).slice(0, 3).join(', ')}${files.length > 3 ? '…' : ''})` : files[0].name;
     if (mode === 'inv') {
-      const items = await readInvestments(file, { askPassword });
-      pending = { mode, file: file.name, items };
+      const items = [];
+      for (const f of files) items.push(...await readInvestments(f, { askPassword }));
+      pending = { mode, file: label, items };
       return investReview();
     }
-    const { items: raw, bank, text } = await readStatement(file, { askPassword });
+    // cada arquivo pode ser de um banco: o banco vai junto com cada lançamento
+    const raw = [];
+    const banks = [];
+    let text = '';
+    for (const f of files) {
+      const r = await readStatement(f, { askPassword });
+      r.items.forEach((it) => raw.push({ ...it, _bank: r.bank }));
+      if (r.bank && !banks.includes(r.bank)) banks.push(r.bank);
+      text += (text ? '\n' : '') + r.text;
+    }
+    const bank = banks.join(' + ');
     // evita duplicar lançamentos já importados
     const seen = new Map();
     data.tx.forEach((t) => { const k = `${t.date}|${t.amount.toFixed(2)}|${t.key}`; seen.set(k, (seen.get(k) || 0) + 1); });
@@ -777,12 +933,12 @@ async function handleFile(file, mode) {
         const fromFile = catByName[r.cat.toLowerCase()] || (c.cat === 'outros' ? bankCategory(r.cat) : null);
         if (fromFile) c.cat = fromFile;
       }
-      const t = { date: r.date, desc: r.desc, ...c, amount: Math.abs(+r.amount.toFixed(2)), bank: bank || undefined };
+      const t = { date: r.date, desc: r.desc, ...c, amount: Math.abs(+r.amount.toFixed(2)), bank: r._bank || undefined };
       const k = `${t.date}|${t.amount.toFixed(2)}|${t.key}`;
       if (seen.get(k)) { seen.set(k, seen.get(k) - 1); dupes++; return; }
       items.push(t);
     });
-    pending = { mode, file: file.name, items, dupes, bank, text };
+    pending = { mode, file: label, items, dupes, bank, text };
     txReview();
   } catch (e) {
     openSheet(`<h2>Não deu para ler</h2><p class="page-sub">${esc(e.message || 'Formato não reconhecido')}</p>
@@ -842,6 +998,7 @@ function confirmImport() {
   location.hash = 'inicio'; render();
   const subs = recurring(data).length;
   toast(subs ? `${items.length} importados · ${subs} possíve${subs > 1 ? 'is' : 'l'} assinatura${subs > 1 ? 's' : ''}` : `${items.length} lançamentos importados`);
+  autoBackup('import');
 }
 
 function confirmInv() {
@@ -858,6 +1015,7 @@ function confirmInv() {
   save(); closeSheet();
   location.hash = 'investir'; render();
   toast('Investimentos atualizados');
+  autoBackup('import');
 }
 
 /* ---------- lançamento ---------- */
@@ -1066,6 +1224,20 @@ document.addEventListener('click', async (e) => {
       break;
     }
     case 'restore': restoreBackup(); break;
+    case 'drive': driveSheet(); break;
+    case 'drive-connect':
+      G.setClientId($('#drive-client')?.value);
+      try { await G.connect(); toast('Google Drive conectado'); await driveBackup(); } catch (err) { toast(err.message); }
+      render();
+      driveSheet();
+      break;
+    case 'drive-backup': await driveBackup(); render(); driveSheet(); break;
+    case 'drive-list':
+      try { driveSheet(await G.listBackups()); } catch (err) { toast(err.message); driveSheet(); }
+      break;
+    case 'drive-restore': restoreFromDrive(id); break;
+    case 'drive-disconnect': G.disconnect(); render(); driveSheet(); break;
+    case 'app-update': updateApp(); break;
     case 'sample': {
       if (data.tx.length && !confirm('Substituir seus dados pelos dados de exemplo?')) break;
       data = normalize({ ...sampleData(), settings: data.settings });
@@ -1107,6 +1279,7 @@ document.addEventListener('submit', (e) => {
 });
 
 document.addEventListener('change', (e) => {
+  if (e.target.id === 'drive-client') { G.setClientId(e.target.value); return; }
   if (e.target.dataset?.settingText === 'ownName' && data) {
     data.settings.ownName = e.target.value.trim();
     // reclassifica transferências já importadas
